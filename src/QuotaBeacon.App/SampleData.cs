@@ -86,6 +86,9 @@ public enum PreviewScenario
     /// <summary>Consumption spend, one with a limit and one without.</summary>
     Spend,
 
+    /// <summary>The settings window, so its chrome can be reviewed like every other surface.</summary>
+    Settings,
+
     /// <summary>A critical window beside a limitless spend meter, plus a provider needing sign-in.</summary>
     Mixed,
 }

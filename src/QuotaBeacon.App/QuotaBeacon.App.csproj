@@ -11,6 +11,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>QuotaBeacon</AssemblyName>
     <RootNamespace>QuotaBeacon.App</RootNamespace>
+    <ApplicationIcon>Assets\QuotaBeacon.ico</ApplicationIcon>
+    <!-- Keeps IntelliSense .xml and .pdb of referenced packages out of publish, so the published
+         folder really is just the executable. -->
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +24,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embedded as a resource as well as set on the executable, so windows can show it too. -->
+    <Resource Include="Assets\QuotaBeacon.ico" />
   </ItemGroup>
 
 </Project>

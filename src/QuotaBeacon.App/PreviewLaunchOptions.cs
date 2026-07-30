@@ -25,6 +25,7 @@ public sealed record PreviewLaunchOptions(bool IsPreview, PreviewScenario Scenar
             {
                 "spend" => PreviewScenario.Spend,
                 "mixed" => PreviewScenario.Mixed,
+                "settings" => PreviewScenario.Settings,
                 _ => PreviewScenario.Seat,
             }
             : PreviewScenario.Seat;

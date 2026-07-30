@@ -14,6 +14,10 @@
     "Preview - mixed (critical + sign-in needed)": {
       "commandName": "Project",
       "commandLineArgs": "--preview mixed"
+    },
+    "Preview - settings": {
+      "commandName": "Project",
+      "commandLineArgs": "--preview settings"
     }
   }
 }

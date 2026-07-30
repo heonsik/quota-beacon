@@ -5,6 +5,7 @@
         xmlns:views="clr-namespace:QuotaBeacon.App.Views"
         xmlns:theming="clr-namespace:QuotaBeacon.App.Theming"
         Title="QuotaBeacon"
+        Icon="pack://application:,,,/Assets/QuotaBeacon.ico"
         Width="430"
         SizeToContent="Height"
         WindowStyle="None"

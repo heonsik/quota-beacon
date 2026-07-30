@@ -79,6 +79,14 @@ public partial class App : System.Windows.Application
         _previewTheme = new Theme();
         ThemeResources.Apply(_previewTheme, Resources, micaApplied: false);
 
+        if (scenario == PreviewScenario.Settings)
+        {
+            var settings = new SettingsWindow(AppSettings.Load(), new Services.WebViewSessionStore());
+            MainWindow = settings;
+            settings.Show();
+            return;
+        }
+
         var now = DateTimeOffset.Now;
         var popup = new PopupWindow(_previewTheme)
         {
