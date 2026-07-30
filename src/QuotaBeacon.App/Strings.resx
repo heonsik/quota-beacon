@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Tab.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Action.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Action.SignIn" xml:space="preserve">
+    <value>Sign in</value>
+  </data>
+  <data name="Action.SignOut" xml:space="preserve">
+    <value>Sign out</value>
+  </data>
+  <data name="Action.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Action.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Tooltip.Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Tooltip.Pin" xml:space="preserve">
+    <value>Keep on screen</value>
+  </data>
+  <data name="Tooltip.Unpin" xml:space="preserve">
+    <value>Return to tray popup</value>
+  </data>
+  <data name="Tooltip.Minimize" xml:space="preserve">
+    <value>Minimize to tray</value>
+  </data>
+  <data name="Tooltip.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Tray.Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Tray.RefreshNow" xml:space="preserve">
+    <value>Refresh now</value>
+  </data>
+  <data name="Tray.Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Tray.Quit" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="Tray.NotReporting" xml:space="preserve">
+    <value>QuotaBeacon · not reporting</value>
+  </data>
+  <data name="Tray.Left" xml:space="preserve">
+    <value>{0} left</value>
+  </data>
+  <data name="Tray.Stale" xml:space="preserve">
+    <value> (stale)</value>
+  </data>
+  <data name="Alert.LowTitle" xml:space="preserve">
+    <value>Quota low</value>
+  </data>
+  <data name="Alert.CriticalTitle" xml:space="preserve">
+    <value>Quota critical</value>
+  </data>
+  <data name="Level.Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Level.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="Meter.NoSpendLimit" xml:space="preserve">
+    <value>No spend limit set</value>
+  </data>
+  <data name="Meter.LimitOf" xml:space="preserve">
+    <value>of {0}</value>
+  </data>
+  <data name="Meter.Resetting" xml:space="preserve">
+    <value>Resetting</value>
+  </data>
+  <data name="Meter.ResetsInDays" xml:space="preserve">
+    <value>Resets in {0}d {1}h</value>
+  </data>
+  <data name="Meter.ResetsInHours" xml:space="preserve">
+    <value>Resets in {0}h {1}m</value>
+  </data>
+  <data name="Meter.ResetsInMinutes" xml:space="preserve">
+    <value>Resets in {0}m</value>
+  </data>
+  <data name="Meter.ResetsUnderMinute" xml:space="preserve">
+    <value>Resets in under a minute</value>
+  </data>
+  <data name="Meter.Through" xml:space="preserve">
+    <value>through {0}</value>
+  </data>
+  <data name="Status.UpdatedJustNow" xml:space="preserve">
+    <value>Updated just now</value>
+  </data>
+  <data name="Status.UpdatedMinutes" xml:space="preserve">
+    <value>Updated {0}m ago</value>
+  </data>
+  <data name="Status.UpdatedHours" xml:space="preserve">
+    <value>Updated {0}h ago</value>
+  </data>
+  <data name="Status.UpdatedDays" xml:space="preserve">
+    <value>Updated {0}d ago</value>
+  </data>
+  <data name="Status.NoProviders" xml:space="preserve">
+    <value>No providers enabled</value>
+  </data>
+  <data name="Status.WaitingFirst" xml:space="preserve">
+    <value>Waiting for first update</value>
+  </data>
+  <data name="Status.StaleAll" xml:space="preserve">
+    <value>Stale — {0}</value>
+  </data>
+  <data name="Status.StaleSome" xml:space="preserve">
+    <value>{0} · {1} stale</value>
+  </data>
+  <data name="Error.NotSignedIn" xml:space="preserve">
+    <value>Not signed in to {0}. Sign in through settings, or use its CLI.</value>
+  </data>
+  <data name="Settings.Title" xml:space="preserve">
+    <value>QuotaBeacon settings</value>
+  </data>
+  <data name="Settings.Providers" xml:space="preserve">
+    <value>Providers</value>
+  </data>
+  <data name="Settings.WebSessionAvailable" xml:space="preserve">
+    <value>Web session available</value>
+  </data>
+  <data name="Settings.NoWebSession" xml:space="preserve">
+    <value>No web session</value>
+  </data>
+  <data name="Settings.RefreshInterval" xml:space="preserve">
+    <value>Refresh interval (minutes)</value>
+  </data>
+  <data name="Settings.WarningAt" xml:space="preserve">
+    <value>Warning at remaining (%)</value>
+  </data>
+  <data name="Settings.CriticalAt" xml:space="preserve">
+    <value>Critical at remaining (%)</value>
+  </data>
+  <data name="Settings.RunAtStartup" xml:space="preserve">
+    <value>Start QuotaBeacon when I sign in to Windows</value>
+  </data>
+  <data name="Settings.Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings.LanguageSystem" xml:space="preserve">
+    <value>Follow Windows</value>
+  </data>
+  <data name="Settings.AlwaysOnTop" xml:space="preserve">
+    <value>Always on top when pinned</value>
+  </data>
+  <data name="Settings.Author" xml:space="preserve">
+    <value>Author and contact · heonsik.lim</value>
+  </data>
+  <data name="Validation.Numeric" xml:space="preserve">
+    <value>Enter numeric values for refresh and alert thresholds.</value>
+  </data>
+  <data name="Validation.Range" xml:space="preserve">
+    <value>Use 1-120 minutes, a warning of 1-90%, and a critical value no higher than warning.</value>
+  </data>
+  <data name="Validation.OneProvider" xml:space="preserve">
+    <value>Enable at least one provider.</value>
+  </data>
+  <data name="Validation.SessionBusy" xml:space="preserve">
+    <value>The browser session is still in use. Close sign-in windows and try again.</value>
+  </data>
+  <data name="SignIn.Title" xml:space="preserve">
+    <value>Sign in to {0}</value>
+  </data>
+  <data name="SignIn.Explanation" xml:space="preserve">
+    <value>This is {0}, opened inside QuotaBeacon. Your sign-in stays in a QuotaBeacon-only browser profile and is never shared with your other browsers. QuotaBeacon does not see your password.</value>
+  </data>
+  <data name="Dialog.RestartPrompt" xml:space="preserve">
+    <value>Restart QuotaBeacon now to apply provider and monitoring changes?</value>
+  </data>
+  <data name="Dialog.StartupFailed" xml:space="preserve">
+    <value>Settings were saved, but Windows startup registration could not be changed.</value>
+  </data>
+  <data name="Dialog.MonitoringStopped" xml:space="preserve">
+    <value>Quota monitoring stopped: {0}</value>
+  </data>
+  <data name="Meter.Window5h" xml:space="preserve">
+    <value>5-hour limit</value>
+  </data>
+  <data name="Meter.WindowWeekly" xml:space="preserve">
+    <value>Weekly limit</value>
+  </data>
+  <data name="Meter.BillingPeriod" xml:space="preserve">
+    <value>This billing period</value>
+  </data>
+  <data name="Meter.Credits" xml:space="preserve">
+    <value>Workspace credits</value>
+  </data>
+</root>

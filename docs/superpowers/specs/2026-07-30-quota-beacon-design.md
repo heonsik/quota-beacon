@@ -277,9 +277,43 @@ enabled the popup opens on that provider's detail tab.
 
 It is a borderless 430px-wide card anchored above the notification area, positioned
 against the work area so it never covers the taskbar or spills off-screen on secondary or
-scaled displays. It closes on deactivate and on `Esc`.
+scaled displays.
 
-### 10.2 Visual language
+### 10.2 Two display modes
+
+The card serves two different needs from one window. Summoned from the tray it should get
+out of the way immediately; left on a second monitor it should behave like an ordinary
+window. A `DisplayMode` of `Popup` or `Pinned` flips four behaviours together:
+
+| | `Popup` | `Pinned` |
+| --- | --- | --- |
+| `ShowInTaskbar` | false | true |
+| `Topmost` | true | user preference, default off |
+| Losing focus | hides | stays |
+| `Esc` | hides | ignored |
+| Position | anchored to the tray | wherever the user left it |
+| Header actions | settings | unpin, minimize, close |
+
+The user switches with a pin control in the header. Pinned mode keeps the custom card
+chrome rather than adopting an OS title bar, so the visual language above still applies;
+the cost is that moving and minimizing are implemented rather than inherited.
+
+**`ShowInTaskbar` recreates the window handle.** WPF rebuilds the `HWND` when that property
+changes, which discards the rounded-corner and dark-frame attributes, `Topmost`, and the
+window's z-order. Every mode change therefore routes through a single method that reapplies
+the chrome and position afterwards. This is the one place in the feature that can fail
+silently, so it is deliberately not spread across event handlers.
+
+Minimizing hides the window and resets `WindowState` to `Normal`, so no dead taskbar button
+is left behind. Closing hides the window and keeps the pinned state; it does not exit,
+because a monitor that quits when its window is closed stops reporting without telling
+anyone. Exit is only the tray menu's own command.
+
+The pinned flag and window position persist. A restored position that falls outside the
+current work area is discarded in favour of the tray anchor, since a display can be
+unplugged or rescaled between runs.
+
+### 10.3 Visual language
 
 - **Backdrop.** Win11 Mica via `DwmSetWindowAttribute` (`DWMWA_SYSTEMBACKDROP_TYPE`), with
   rounded corners via `DWMWA_WINDOW_CORNER_PREFERENCE`. On Win10, where those attributes
@@ -302,7 +336,7 @@ scaled displays. It closes on deactivate and on `Esc`.
 - **Depth.** One soft ambient shadow on the card, no shadows on inner elements. Inner
   separation is done with 1px hairlines at low opacity.
 
-### 10.3 Rendering by meter kind
+### 10.4 Rendering by meter kind
 
 - `Ratio != null`: hero percentage, animated gauge, and either a live reset countdown or
   the billing period end.
@@ -314,7 +348,7 @@ scaled displays. It closes on deactivate and on `Esc`.
 This distinction is the visual expression of the section 2 constraint, and it is the one
 place where the design must resist the temptation to look uniform.
 
-### 10.4 Stale and error states
+### 10.5 Stale and error states
 
 Stale values stay visible at reduced opacity with a small badge on the footer giving the
 last success time and the reason. Errors render inside the affected provider's row, never
@@ -324,7 +358,7 @@ A provider in `AuthenticationMissing` replaces its gauge with a single actionabl
 sign-in affordance that opens the embedded sign-in window, so a user who has no CLI installed
 reaches a working state without leaving the popup.
 
-### 10.5 Tray icon
+### 10.6 Tray icon
 
 Drawn at runtime from the resolved tray state so it is crisp at every DPI and reflects
 severity without shipping a bitmap per state. It renders a ring whose sweep is the
@@ -332,7 +366,40 @@ representative meter's remaining fraction, filled with that meter's severity col
 neutral state (no eligible meter) draws the ring unfilled. The tooltip's first line is the
 representative meter, followed by one line per enabled provider.
 
-## 11. Testing
+## 11. Language
+
+The interface supports English and Korean. The default follows the operating system's display
+language; an explicit choice in settings overrides it and persists.
+
+Switching applies immediately rather than on restart. `Localization.Current` exposes strings
+through an indexer and raises a change notification for the indexer when the language
+changes, so every bound element repaints without recreating a window.
+
+### 11.1 Scope: chrome is translated, diagnostics are not
+
+Only what the user reads as interface is translated: tabs, buttons, settings labels, tray menu
+items, and the phrases the view models format (`Resets in 2h 18m`, `Updated just now`,
+`No spend limit set`). Provider error text and log output stay in English.
+
+This boundary is free, because it is already an assembly boundary. Every translated string
+lives in `QuotaBeacon.App`; the only user-visible English text, `ProviderError.Message`, is
+produced in `QuotaBeacon.Providers`. So no cross-assembly resource plumbing is needed and
+neither `Core` nor `Providers` changes.
+
+One exception earns its keep. The most frequently seen error is "not signed in", which reads
+as guidance rather than as a diagnostic, and the UI already knows about it through
+`ProviderErrorKind`. That single case is phrased in the UI and translated; every other error
+shows the English `Message` unchanged.
+
+Dates and numbers follow the selected language, which also removes the mismatch of an English
+label beside a Korean-formatted date.
+
+## 12. Attribution
+
+Settings shows a single line crediting the author and giving the contact point:
+`heonsik.lim`. It is not added to the tray menu, which does not need another item.
+
+## 13. Testing
 
 `Core` is pure and covered directly: meter invariants and clamping, ratio derivation,
 alert latching across window rollover and recovery, tray resolution precedence including
@@ -346,7 +413,7 @@ no real account data or tokens.
 Networking and the WinForms host are not unit tested. `IQuotaProvider` is the seam;
 `Core` tests substitute fakes.
 
-## 12. Packaging
+## 14. Packaging
 
 `dotnet publish -r win-x64 --self-contained` producing a single-file executable, so the
 app runs without an installer or administrator rights. Startup registration is an opt-in
@@ -354,7 +421,7 @@ per-user `Run` registry entry, written only on explicit user action.
 
 License: MIT, matching the surrounding ecosystem.
 
-## 13. Deliberately out of scope
+## 15. Deliberately out of scope
 
 Organization-wide dashboards, administrator analytics, general ChatGPT chat message
 limits (OpenAI does not expose remaining counts, so any figure would be an estimate),

@@ -1,9 +1,8 @@
-﻿<Application x:Class="QuotaBeacon.App.App"
+<Application x:Class="QuotaBeacon.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:QuotaBeacon.App"
-             StartupUri="MainWindow.xaml">
-    <Application.Resources>
-         
-    </Application.Resources>
+             ShutdownMode="OnExplicitShutdown">
+  <!-- No StartupUri: the app lives in the tray, and its windows are created by the composition root
+       in App.xaml.cs. ShutdownMode is explicit so hiding the popup does not end the process. -->
+  <Application.Resources />
 </Application>

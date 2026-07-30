@@ -1,0 +1,113 @@
+<Window x:Class="QuotaBeacon.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:theming="clr-namespace:QuotaBeacon.App.Theming"
+        Title="{Binding [Settings.Title], Source={x:Static theming:Localization.Current}}"
+        Width="460"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Brush.Surface}"
+        Foreground="{DynamicResource Brush.Foreground}"
+        FontFamily="Segoe UI Variable Text, Segoe UI">
+  <Window.Resources>
+    <Style TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="MinWidth" Value="76" />
+      <Setter Property="Padding" Value="6,4" />
+    </Style>
+  </Window.Resources>
+
+  <Grid Margin="22">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <StackPanel>
+      <TextBlock Text="{Binding [Settings.Providers], Source={x:Static theming:Localization.Current}}"
+                 FontSize="15" FontWeight="Medium" />
+      <CheckBox x:Name="ClaudeEnabled" Content="Claude" Margin="0,12,0,4" />
+      <StackPanel Orientation="Horizontal" Margin="22,0,0,8">
+        <TextBlock x:Name="ClaudeSession" Foreground="{DynamicResource Brush.Muted}" Width="200" />
+        <Button Content="{Binding [Action.SignIn], Source={x:Static theming:Localization.Current}}"
+                Margin="0,0,8,0" Padding="10,3" Click="OnClaudeSignIn" />
+        <Button Content="{Binding [Action.SignOut], Source={x:Static theming:Localization.Current}}"
+                Padding="10,3" Click="OnClaudeSignOut" />
+      </StackPanel>
+      <CheckBox x:Name="CodexEnabled" Content="Codex" Margin="0,4" />
+      <StackPanel Orientation="Horizontal" Margin="22,0,0,0">
+        <TextBlock x:Name="CodexSession" Foreground="{DynamicResource Brush.Muted}" Width="200" />
+        <Button Content="{Binding [Action.SignIn], Source={x:Static theming:Localization.Current}}"
+                Margin="0,0,8,0" Padding="10,3" Click="OnCodexSignIn" />
+        <Button Content="{Binding [Action.SignOut], Source={x:Static theming:Localization.Current}}"
+                Padding="10,3" Click="OnCodexSignOut" />
+      </StackPanel>
+    </StackPanel>
+
+    <Border Grid.Row="1" Height="1" Background="{DynamicResource Brush.Hairline}" Margin="0,18" />
+
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <TextBlock Text="{Binding [Settings.RefreshInterval], Source={x:Static theming:Localization.Current}}"
+                 Margin="0,0,16,10" />
+      <TextBox x:Name="RefreshMinutes" Grid.Column="1" Margin="0,0,0,10" />
+
+      <TextBlock Grid.Row="1"
+                 Text="{Binding [Settings.WarningAt], Source={x:Static theming:Localization.Current}}"
+                 Margin="0,0,16,10" />
+      <TextBox x:Name="WarningPercent" Grid.Row="1" Grid.Column="1" Margin="0,0,0,10" />
+
+      <TextBlock Grid.Row="2"
+                 Text="{Binding [Settings.CriticalAt], Source={x:Static theming:Localization.Current}}"
+                 Margin="0,0,16,10" />
+      <TextBox x:Name="CriticalPercent" Grid.Row="2" Grid.Column="1" Margin="0,0,0,10" />
+
+      <TextBlock Grid.Row="3"
+                 Text="{Binding [Settings.Language], Source={x:Static theming:Localization.Current}}"
+                 Margin="0,0,16,10" />
+      <ComboBox x:Name="LanguageChoice" Grid.Row="3" Grid.Column="1" MinWidth="150" Margin="0,0,0,10"
+                SelectionChanged="OnLanguageChanged" />
+
+      <CheckBox x:Name="AlwaysOnTop" Grid.Row="4" Grid.ColumnSpan="2" Margin="0,2,0,8"
+                Content="{Binding [Settings.AlwaysOnTop], Source={x:Static theming:Localization.Current}}" />
+      <CheckBox x:Name="RunAtStartup" Grid.Row="5" Grid.ColumnSpan="2"
+                Content="{Binding [Settings.RunAtStartup], Source={x:Static theming:Localization.Current}}" />
+    </Grid>
+
+    <Border Grid.Row="3" Height="1" Background="{DynamicResource Brush.Hairline}" Margin="0,18" />
+
+    <TextBlock Grid.Row="4"
+               Text="{Binding [Settings.Author], Source={x:Static theming:Localization.Current}}"
+               FontSize="11.5"
+               Foreground="{DynamicResource Brush.Muted}" />
+
+    <Grid Grid.Row="5" Margin="0,20,0,0">
+      <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource Brush.Text.Critical}" TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="{Binding [Action.Cancel], Source={x:Static theming:Localization.Current}}"
+                Width="82" Margin="0,0,8,0" IsCancel="True" />
+        <Button Content="{Binding [Action.Save], Source={x:Static theming:Localization.Current}}"
+                Width="82" IsDefault="True" Click="OnSave" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

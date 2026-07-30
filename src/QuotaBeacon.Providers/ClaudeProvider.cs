@@ -29,12 +29,14 @@ public sealed class ClaudeProvider(
         new QuotaSource(
             "oauth-usage",
             new Uri("https://api.anthropic.com/api/oauth/usage"),
-            SeatDescriptors),
+            SeatDescriptors,
+            [AuthSourceKind.Cli]),
 
         new QuotaSource(
             "claude-ai-usage",
             new Uri("https://claude.ai/api/usage"),
-            [.. SeatDescriptors, .. SpendDescriptors]),
+            [.. SeatDescriptors, .. SpendDescriptors],
+            [AuthSourceKind.Web]),
     ];
 
     private static IReadOnlyList<MeterDescriptor> SeatDescriptors =>

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net9.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\QuotaBeacon.Core\QuotaBeacon.Core.csproj" />
     <ProjectReference Include="..\..\src\QuotaBeacon.Providers\QuotaBeacon.Providers.csproj" />
+    <ProjectReference Include="..\..\src\QuotaBeacon.App\QuotaBeacon.App.csproj" />
   </ItemGroup>
 
   <ItemGroup>

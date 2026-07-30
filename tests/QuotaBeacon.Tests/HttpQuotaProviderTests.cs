@@ -108,6 +108,84 @@ public class HttpQuotaProviderTests
     }
 
     [Fact]
+    public async Task Rejected_cli_credentials_fall_through_to_web_credentials()
+    {
+        var handler = new StubHandler();
+        handler.RespondSequence(
+            First,
+            (HttpStatusCode.Unauthorized, "{}"),
+            (HttpStatusCode.OK, """{"five_hour":{"used_percent":40}}"""));
+
+        var web = FakeAuthSource.Yielding(
+            new AuthCredential(
+                AuthSourceKind.Web,
+                new Dictionary<string, string> { ["Cookie"] = "session=web" }),
+            AuthSourceKind.Web);
+
+        var chain = new AuthChain(
+        [
+            FakeAuthSource.Yielding(new AuthCredential(
+                AuthSourceKind.Cli,
+                new Dictionary<string, string> { ["Authorization"] = "Bearer stale" })),
+            web,
+        ]);
+
+        var snapshot = await Provider(handler, chain).FetchAsync(Now, CancellationToken.None);
+
+        Assert.True(snapshot.IsSuccess);
+        Assert.Equal(2, handler.CountFor(First));
+        Assert.Equal(1, web.AcquireCount);
+        Assert.Equal("session=web", handler.LastRequestHeader(First, "Cookie"));
+    }
+
+    [Fact]
+    public async Task Successful_cli_credentials_do_not_acquire_the_web_source()
+    {
+        var handler = new StubHandler();
+        handler.Respond(First, HttpStatusCode.OK, """{"five_hour":{"used_percent":25}}""");
+        var web = FakeAuthSource.Yielding(
+            new AuthCredential(AuthSourceKind.Web, new Dictionary<string, string> { ["Cookie"] = "session=web" }),
+            AuthSourceKind.Web);
+
+        var chain = new AuthChain(
+        [
+            FakeAuthSource.Yielding(new AuthCredential(
+                AuthSourceKind.Cli,
+                new Dictionary<string, string> { ["Authorization"] = "Bearer good" })),
+            web,
+        ]);
+
+        var snapshot = await Provider(handler, chain).FetchAsync(Now, CancellationToken.None);
+
+        Assert.True(snapshot.IsSuccess);
+        Assert.Equal(0, web.AcquireCount);
+    }
+
+    [Fact]
+    public async Task Web_credentials_skip_sources_that_only_accept_cli_authentication()
+    {
+        var handler = new StubHandler();
+        handler.Respond(Second, HttpStatusCode.OK, """{"five_hour":{"used_percent":30}}""");
+        var sources = new[]
+        {
+            new QuotaSource("cli", First, Descriptors, [AuthSourceKind.Cli]),
+            new QuotaSource("web", Second, Descriptors, [AuthSourceKind.Web]),
+        };
+        var chain = new AuthChain(
+        [
+            FakeAuthSource.Yielding(
+                new AuthCredential(AuthSourceKind.Web, new Dictionary<string, string> { ["Cookie"] = "session=web" }),
+                AuthSourceKind.Web),
+        ]);
+
+        var snapshot = await Provider(handler, chain, sources).FetchAsync(Now, CancellationToken.None);
+
+        Assert.True(snapshot.IsSuccess);
+        Assert.Equal(0, handler.CountFor(First));
+        Assert.Equal(1, handler.CountFor(Second));
+    }
+
+    [Fact]
     public async Task Rate_limiting_is_reported_with_the_requested_delay()
     {
         var handler = new StubHandler();
@@ -219,25 +297,36 @@ public class HttpQuotaProviderTests
         private readonly AuthCredential? _credential;
         private readonly AuthExpiredException? _expired;
 
-        private FakeAuthSource(AuthCredential? credential, AuthExpiredException? expired)
+        private FakeAuthSource(
+            AuthCredential? credential,
+            AuthExpiredException? expired,
+            AuthSourceKind kind = AuthSourceKind.Cli)
         {
             _credential = credential;
             _expired = expired;
+            Kind = kind;
         }
 
-        public static FakeAuthSource Yielding(AuthCredential credential) => new(credential, null);
+        public static FakeAuthSource Yielding(
+            AuthCredential credential,
+            AuthSourceKind kind = AuthSourceKind.Cli) => new(credential, null, kind);
 
         public static FakeAuthSource Unavailable() => new(null, null);
 
         public static FakeAuthSource Expired(string message) =>
             new(null, new AuthExpiredException(message));
 
-        public AuthSourceKind Kind => AuthSourceKind.Cli;
+        public AuthSourceKind Kind { get; }
 
-        public Task<AuthCredential?> TryAcquireAsync(CancellationToken cancellationToken) =>
-            _expired is not null
+        public int AcquireCount { get; private set; }
+
+        public Task<AuthCredential?> TryAcquireAsync(CancellationToken cancellationToken)
+        {
+            AcquireCount++;
+            return _expired is not null
                 ? throw _expired
                 : Task.FromResult(_credential);
+        }
     }
 
     private sealed class StubHandler : HttpMessageHandler
@@ -263,6 +352,19 @@ public class HttpQuotaProviderTests
 
                 return response;
             };
+
+        public void RespondSequence(Uri uri, params (HttpStatusCode Status, string Body)[] responses)
+        {
+            var queue = new Queue<(HttpStatusCode Status, string Body)>(responses);
+            _responses[uri] = () =>
+            {
+                var response = queue.Count > 1 ? queue.Dequeue() : queue.Peek();
+                return new HttpResponseMessage(response.Status)
+                {
+                    Content = new StringContent(response.Body),
+                };
+            };
+        }
 
         public void Throw(Uri uri, Exception exception) =>
             _responses[uri] = () => throw exception;

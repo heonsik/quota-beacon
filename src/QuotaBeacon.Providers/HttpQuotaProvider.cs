@@ -8,7 +8,11 @@ namespace QuotaBeacon.Providers;
 public sealed record QuotaSource(
     string Name,
     Uri Endpoint,
-    IReadOnlyList<MeterDescriptor> Descriptors);
+    IReadOnlyList<MeterDescriptor> Descriptors,
+    IReadOnlyList<AuthSourceKind>? AllowedAuthKinds = null)
+{
+    public bool Accepts(AuthSourceKind kind) => AllowedAuthKinds is null || AllowedAuthKinds.Contains(kind);
+}
 
 /// <summary>
 /// Fetches quota over HTTP by probing candidate endpoints until one yields meters.
@@ -40,10 +44,35 @@ public abstract class HttpQuotaProvider(
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        AuthCredential credential;
+        ProviderError? bestError = null;
+
         try
         {
-            credential = await authChain.AcquireAsync(cancellationToken).ConfigureAwait(false);
+            await foreach (var credential in authChain
+                .AcquireAvailableAsync(cancellationToken)
+                .ConfigureAwait(false))
+            {
+                foreach (var source in Ordered(sources).Where(source => source.Accepts(credential.Kind)))
+                {
+                    var attempt = await AttemptAsync(source, credential, now, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    if (attempt.Snapshot is { } success)
+                    {
+                        _knownGoodSource = source.Name;
+                        return success;
+                    }
+
+                    bestError = MoreActionable(bestError, attempt.Error);
+
+                    // A rejected credential will fail against the provider's other endpoints too,
+                    // but a later auth source may still work.
+                    if (attempt.Error?.Kind is ProviderErrorKind.AuthenticationExpired)
+                    {
+                        break;
+                    }
+                }
+            }
         }
         catch (AuthUnavailableException unavailable)
         {
@@ -51,28 +80,6 @@ public abstract class HttpQuotaProvider(
                 Id,
                 now,
                 new ProviderError(unavailable.Kind, DescribeAuthFailure(unavailable)));
-        }
-
-        ProviderError? bestError = null;
-
-        foreach (var source in Ordered(sources))
-        {
-            var attempt = await AttemptAsync(source, credential, now, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (attempt.Snapshot is { } success)
-            {
-                _knownGoodSource = source.Name;
-                return success;
-            }
-
-            bestError = MoreActionable(bestError, attempt.Error);
-
-            // An authentication problem will repeat on every endpoint, so stop probing.
-            if (attempt.Error?.Kind is ProviderErrorKind.AuthenticationExpired)
-            {
-                break;
-            }
         }
 
         return QuotaSnapshot.Failure(

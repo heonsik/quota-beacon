@@ -1,4 +1,5 @@
 using QuotaBeacon.Core;
+using System.Runtime.CompilerServices;
 
 namespace QuotaBeacon.Providers;
 
@@ -57,26 +58,50 @@ public sealed class AuthChain(IReadOnlyList<IAuthSource> sources)
 {
     public async Task<AuthCredential> AcquireAsync(CancellationToken cancellationToken)
     {
+        await foreach (var credential in AcquireAvailableAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return credential;
+        }
+
+        throw new InvalidOperationException("The authentication chain completed without a result.");
+    }
+
+    /// <summary>
+    /// Lazily yields credentials in preference order. Later sources are acquired only after the
+    /// caller has tried and rejected an earlier credential.
+    /// </summary>
+    public async IAsyncEnumerable<AuthCredential> AcquireAvailableAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         string? expiredMessage = null;
+        var yielded = false;
 
         foreach (var source in sources)
         {
+            AuthCredential? credential = null;
+
             try
             {
-                if (await source.TryAcquireAsync(cancellationToken).ConfigureAwait(false) is { } credential)
-                {
-                    return credential;
-                }
+                credential = await source.TryAcquireAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (AuthExpiredException expired)
             {
                 expiredMessage ??= expired.Message;
             }
+
+            if (credential is not null)
+            {
+                yielded = true;
+                yield return credential;
+            }
         }
 
-        throw expiredMessage is null
-            ? new AuthUnavailableException(ProviderErrorKind.AuthenticationMissing)
-            : new AuthUnavailableException(ProviderErrorKind.AuthenticationExpired, expiredMessage);
+        if (!yielded)
+        {
+            throw expiredMessage is null
+                ? new AuthUnavailableException(ProviderErrorKind.AuthenticationMissing)
+                : new AuthUnavailableException(ProviderErrorKind.AuthenticationExpired, expiredMessage);
+        }
     }
 }
 

@@ -1,0 +1,19 @@
+{
+  "profiles": {
+    "QuotaBeacon (tray)": {
+      "commandName": "Project"
+    },
+    "Preview - seat (percent windows)": {
+      "commandName": "Project",
+      "commandLineArgs": "--preview seat"
+    },
+    "Preview - spend (no limit, no gauge)": {
+      "commandName": "Project",
+      "commandLineArgs": "--preview spend"
+    },
+    "Preview - mixed (critical + sign-in needed)": {
+      "commandName": "Project",
+      "commandLineArgs": "--preview mixed"
+    }
+  }
+}
