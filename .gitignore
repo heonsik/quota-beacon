@@ -1,0 +1,11 @@
+.superpowers/
+
+# .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+publish/
+artifacts/
+*.user
+.vs/
