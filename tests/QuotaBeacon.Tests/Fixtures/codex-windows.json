@@ -1,0 +1,7 @@
+{
+  "rate_limits": {
+    "primary": { "used_percent": 76, "window_minutes": 300, "resets_in_seconds": 1800 },
+    "secondary": { "used_percent": 12, "window_minutes": 10080, "resets_in_seconds": 300000 }
+  },
+  "plan_type": "enterprise"
+}

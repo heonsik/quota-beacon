@@ -1,0 +1,5 @@
+{
+  "five_hour": { "utilization": 42, "resets_at": "2026-07-30T18:00:00Z" },
+  "seven_day": { "utilization": 19, "resets_at": "2026-08-03T09:00:00Z" },
+  "rate_limit_tier": "default_claude_ai"
+}

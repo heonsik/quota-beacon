@@ -1,0 +1,4 @@
+{
+  "detail": "not_authorized",
+  "meta": { "request_id": "abc", "attempts": 2 }
+}

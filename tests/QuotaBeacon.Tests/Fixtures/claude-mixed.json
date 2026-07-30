@@ -1,0 +1,4 @@
+{
+  "five_hour": { "used_percent": 88.4, "resets_in_seconds": 4200 },
+  "spend": { "amount": 61, "currency": "USD", "limit": { "amount": 100, "currency": "USD" } }
+}

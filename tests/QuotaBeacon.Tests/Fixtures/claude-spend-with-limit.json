@@ -1,0 +1,9 @@
+{
+  "spend": {
+    "amount": 132.5,
+    "currency": "USD",
+    "limit": 400,
+    "period_start": "2026-07-01T00:00:00Z",
+    "period_end": "2026-07-31T23:59:59Z"
+  }
+}

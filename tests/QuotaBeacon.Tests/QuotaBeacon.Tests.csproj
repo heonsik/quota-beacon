@@ -23,4 +23,8 @@
     <ProjectReference Include="..\..\src\QuotaBeacon.Providers\QuotaBeacon.Providers.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
