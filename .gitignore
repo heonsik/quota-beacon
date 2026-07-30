@@ -9,3 +9,6 @@ publish/
 artifacts/
 *.user
 .vs/
+
+# stray driver logs
+NVIDIA Corporation/

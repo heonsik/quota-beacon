@@ -78,8 +78,7 @@ Enforced in the `Meter` factory methods, verified by tests:
 
 ## 4. Component boundaries
 
-C# on .NET 9, WPF for the popup, published as a self-contained single-file executable
-with no external runtime or package dependencies.
+C# on .NET 9, WPF for the popup, published as a self-contained single-file executable.
 
 ```
 QuotaBeacon.Core          no UI, no HTTP, no filesystem. Pure logic + contracts.
@@ -89,9 +88,11 @@ QuotaBeacon.Core          no UI, no HTTP, no filesystem. Pure logic + contracts.
   TrayStateResolver       collapses N meters into one icon state
   SnapshotCache           last-known-good with staleness
 
-QuotaBeacon.Providers     credential discovery, HTTP, response mapping
+QuotaBeacon.Providers     authentication, HTTP, response mapping
   ClaudeProvider, CodexProvider
-  ICredentialSource       reads local CLI credential files, read-only
+  IAuthSource             one way to authenticate; providers hold an ordered chain
+  CliAuthSource           reads local CLI credential files, read-only
+  WebAuthSource           uses QuotaBeacon's own embedded browser session
   QuotaMapper             tolerant JSON to Meter projection
 
 QuotaBeacon.App           WPF popup + WinForms NotifyIcon for the tray
@@ -99,6 +100,7 @@ QuotaBeacon.App           WPF popup + WinForms NotifyIcon for the tray
   IconRenderer            runtime-drawn DPI-aware icon
   PopupWindow             the quota card
   SettingsWindow
+  WebSignInWindow         embedded WebView2 sign-in, per-provider profile
   RefreshScheduler        refresh loop, backoff
   AppSettings             JSON under %LOCALAPPDATA%
 
@@ -112,25 +114,39 @@ depend on `Core` and `Providers` and never touch the network.
 WPF carries the visual work because the popup needs gradients, shadows, eased animation,
 and system theme following, none of which WinForms does well. `NotifyIcon` comes from
 WinForms purely because WPF has no tray primitive; it is used for the icon and menu only,
-via `<UseWindowsForms>` alongside `<UseWPF>`. No third-party UI package is taken, keeping
-the dependency surface at zero for security review.
+via `<UseWindowsForms>` alongside `<UseWPF>`.
+
+The only package dependency is `Microsoft.Web.WebView2`, needed for the embedded sign-in in
+section 5.1. It is a Microsoft first-party component, and on Windows 11 its runtime is already
+present. No third-party UI library is taken, keeping the review surface small.
 
 ## 5. Provider behavior
 
-### 5.1 Credential discovery is read-only
+### 5.1 Authentication sources form an ordered chain
 
-QuotaBeacon reads existing CLI credentials and never writes them:
+A user who never installed Claude Code or the Codex CLI has no credential file, so CLI-only
+authentication would leave them with an empty popup. Each provider therefore walks an ordered
+list of `IAuthSource` implementations and uses the first that produces quota data:
 
-- Claude: `%USERPROFILE%\.claude\.credentials.json`, honoring `CLAUDE_CONFIG_DIR`.
-- Codex: `%USERPROFILE%\.codex\auth.json`, honoring `CODEX_HOME`.
+1. `CliAuthSource` — reads `%USERPROFILE%\.claude\.credentials.json` (honoring
+   `CLAUDE_CONFIG_DIR`) or `%USERPROFILE%\.codex\auth.json` (honoring `CODEX_HOME`).
+2. `WebAuthSource` — uses the session in QuotaBeacon's own embedded browser profile, if the
+   user has signed in there.
 
-**QuotaBeacon never performs a token refresh.** Both files hold a refresh token shared
-with the vendor CLI. Refreshing from a second process races the CLI and can invalidate
-the user's session. On expiry the provider returns
-`ProviderError.AuthenticationExpired` and the UI instructs the user to re-authenticate
-in the CLI. This is a deliberate capability sacrifice for correctness.
+`AuthenticationMissing` is returned only when every source in the chain is unavailable, and its
+message names the two ways forward: sign in to the CLI, or sign in through the app.
 
-### 5.2 Capability probing
+### 5.2 CLI credentials are read-only and never refreshed
+
+QuotaBeacon opens credential files read-only and never writes them.
+
+**It never performs a token refresh.** Both files hold a refresh token shared with the vendor
+CLI; refreshing from a second process races the CLI and can invalidate the user's session. On
+expiry the CLI source reports `AuthenticationExpired`, the chain falls through to the web
+source, and if that is also unavailable the UI offers both remedies. This is a deliberate
+capability sacrifice for correctness.
+
+### 5.3 Capability probing
 
 The exact response shape of consumption-based Enterprise usage endpoints is not publicly
 documented and could not be verified against an Enterprise account during design. Each
@@ -146,7 +162,7 @@ provider therefore declares an ordered list of candidate sources and probes them
 This makes an unverified endpoint a runtime discovery instead of a design assumption, and
 degrades to an actionable error rather than a wrong number.
 
-### 5.3 Mapping is additive and tolerant
+### 5.4 Mapping is additive and tolerant
 
 Mapping never requires a field it does not use. Unknown keys are ignored. A response
 containing both window and spend information yields meters of both kinds; the UI already
@@ -154,7 +170,7 @@ renders any mix. Field-name variants observed across providers (`primary_window`
 `secondary_window`, `five_hour_limit`, `weekly_limit`) are handled as aliases of the same
 meter ids.
 
-### 5.4 Independence
+### 5.5 Independence
 
 Each provider runs on its own task with its own timeout and its own cache entry. A
 provider failure marks only that provider stale. The refresh loop awaits both and never
@@ -229,17 +245,22 @@ a credential change detected via file watch.
   `CurrentUser` scope. The first release stores no secrets of its own.
 - Credential files are opened read-only with no write share request.
 
-### 9.1 Browser session fallback is deferred
+### 9.1 The web fallback signs in rather than harvesting
 
-Product requirements section 4 allows falling back to an approved Edge or Chrome profile.
-This is **excluded from the first release**. Implementing it on Windows requires
-decrypting the DPAPI-protected cookie store, which is the technique used by credential
-stealing malware; it is likely to be flagged by endpoint protection, and it contradicts
-requirement 6's commitment not to bypass browser security policy. When CLI credentials
-are insufficient, QuotaBeacon reports `AuthenticationMissing` with instructions instead.
+Reading the cookie store of an installed browser is **prohibited**. On Windows it requires
+decrypting a DPAPI-protected store, which is the technique used by credential-stealing
+malware, is likely to be flagged by endpoint protection, and means handling credentials the
+user never presented to this application.
 
-Revisit only if an official user-scoped API proves unavailable and the security owner
-approves the technique explicitly.
+The supported fallback inverts this: the user signs in through an embedded WebView2 window
+that QuotaBeacon owns, completing SSO and MFA normally. Cookies are written to a
+QuotaBeacon-owned user-data folder under `%LOCALAPPDATA%\QuotaBeacon\WebView2\<provider>`,
+isolated per provider and never shared with a system browser profile. Signing out deletes
+that folder.
+
+This keeps requirement 6's no-policy-bypass commitment intact: conditional access, SSO, and
+MFA all apply to the embedded sign-in exactly as they would in a browser, because it *is* a
+browser.
 
 ## 10. UI
 
@@ -297,8 +318,11 @@ place where the design must resist the temptation to look uniform.
 
 Stale values stay visible at reduced opacity with a small badge on the footer giving the
 last success time and the reason. Errors render inside the affected provider's row, never
-as a dialog, and never replace a value that is still meaningful. A provider in
-`AuthenticationMissing` shows a single actionable line instead of a gauge.
+as a dialog, and never replace a value that is still meaningful.
+
+A provider in `AuthenticationMissing` replaces its gauge with a single actionable line and a
+sign-in affordance that opens the embedded sign-in window, so a user who has no CLI installed
+reaches a working state without leaving the popup.
 
 ### 10.5 Tray icon
 

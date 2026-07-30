@@ -45,7 +45,34 @@ Providers must accept both account styles. A provider reports whichever quota sh
 
 QuotaBeacon reads CLI credentials read-only and never refreshes them, because the refresh token is shared with the vendor CLI and a second refresher can invalidate the user's session. Expired credentials produce an actionable error directing the user to re-authenticate in the CLI.
 
-Browser-session fallback is **deferred out of the first release**. On Windows it requires decrypting the DPAPI-protected cookie store, which is the technique used by credential-stealing malware, is likely to be flagged by endpoint protection, and contradicts section 6's commitment not to bypass browser security policy. When CLI credentials are insufficient, QuotaBeacon reports the condition with instructions instead. Revisit only with explicit security-owner approval.
+### 4.1 Authentication strategy chain
+
+Not every user installs Claude Code or the Codex CLI. Someone who only uses claude.ai or
+chatgpt.com in a browser has no CLI credential file, so a CLI-only design would show them nothing.
+Each provider therefore tries authentication sources in order and uses the first that yields quota
+data:
+
+1. **CLI credentials** — `.claude/.credentials.json` or `.codex/auth.json`, read-only. Preferred
+   because it requires no additional sign-in.
+2. **Web session** — a session established by the user signing in through QuotaBeacon's own
+   embedded browser window.
+
+The web path is a first-class fallback, not an edge case. The settings screen shows which source
+each provider is using and allows signing in or signing out per provider.
+
+### 4.2 The web fallback signs in; it does not harvest
+
+The web session is established by the user completing a normal sign-in, including SSO and MFA,
+inside an embedded browser window owned by QuotaBeacon. The resulting cookies live in
+QuotaBeacon's own isolated browser data folder.
+
+QuotaBeacon must **never read the cookie store of Edge, Chrome, or any other installed browser**.
+On Windows that requires decrypting a DPAPI-protected store, which is the technique used by
+credential-stealing malware, is likely to be flagged by endpoint protection, and would mean
+handling credentials the user never presented to this application. Reading another browser's
+cookies is prohibited regardless of convenience.
+
+Signing out clears QuotaBeacon's browser data folder for that provider.
 
 Future providers such as Gemini or GitHub Copilot should be addable through the same provider boundary, but extensibility must not add unused first-release features.
 
