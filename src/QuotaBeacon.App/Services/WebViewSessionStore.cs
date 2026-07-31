@@ -46,31 +46,81 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
         }
 
         var view = new WebView2();
+        Window? window = null;
 
-        var window = new Window
+        try
         {
-            Width = 0,
-            Height = 0,
-            Left = -32000,
-            Top = -32000,
-            ShowInTaskbar = false,
-            WindowStyle = WindowStyle.None,
-            ShowActivated = false,
-            Content = view,
-        };
+            window = new Window
+            {
+                Width = 0,
+                Height = 0,
+                Left = -32000,
+                Top = -32000,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                ShowActivated = false,
+                Content = view,
+            };
 
-        window.Show();
+            window.Show();
 
-        var environment = await CoreWebView2Environment
-            .CreateAsync(userDataFolder: ProfileDirectory(provider))
-            .ConfigureAwait(true);
+            var environment = await CoreWebView2Environment
+                .CreateAsync(userDataFolder: ProfileDirectory(provider))
+                .ConfigureAwait(true);
 
-        await view.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
+            await view.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
+        }
+        catch
+        {
+            // Initialization commonly fails because another QuotaBeacon instance already holds this
+            // user-data folder — WebView2 profiles are single-process. Whatever the reason, the
+            // half-built control must be destroyed here rather than abandoned to the garbage
+            // collector; see Discard for why that distinction is fatal.
+            Discard(view, window);
+            throw;
+        }
 
         _hosts[provider] = view;
         _windows[provider] = window;
 
         return view;
+    }
+
+    /// <summary>
+    /// Destroys a host without letting its finalizer run.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="WebView2"/> dereferences state during teardown that only exists once initialization
+    /// has completed. A control that failed to initialize therefore throws
+    /// <see cref="NullReferenceException"/> from its own disposal — and if that disposal happens on the
+    /// finalizer thread, the exception is unhandled and takes the whole process down. Suppressing
+    /// finalization is the only way to guarantee that never happens, so it runs even when the explicit
+    /// disposal below succeeds.
+    /// </remarks>
+    private static void Discard(WebView2 view, Window? window)
+    {
+        try
+        {
+            view.Dispose();
+        }
+        catch (Exception)
+        {
+            // An uninitialized control throws here. There is nothing to recover — the point of this
+            // call is simply to release a control that *was* initialized.
+        }
+        finally
+        {
+            GC.SuppressFinalize(view);
+        }
+
+        if (window is null)
+        {
+            return;
+        }
+
+        // Detach first so closing the window cannot walk back into the dead control.
+        window.Content = null;
+        window.Close();
     }
 
     public async Task<string?> GetCookieHeaderAsync(Uri uri, CancellationToken cancellationToken)
@@ -111,20 +161,15 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
     /// <summary>Signs out by deleting the provider's profile.</summary>
     public bool TrySignOut(ProviderId provider)
     {
+        _windows.Remove(provider, out var window);
+
         if (_hosts.Remove(provider, out var host))
         {
-            try
-            {
-                host.Dispose();
-            }
-            catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
-            {
-            }
+            Discard(host, window);
         }
-
-        if (_windows.Remove(provider, out var window))
+        else
         {
-            window.Close();
+            window?.Close();
         }
 
         try
@@ -146,23 +191,19 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
 
     public void Dispose()
     {
-        // Dispose the control before closing its window: the control owns the CoreWebView2 and the
-        // browser processes behind it, and closing the window alone does not release them.
-        foreach (var host in _hosts.Values)
+        // The control owns the CoreWebView2 and the browser processes behind it, so closing the window
+        // alone does not release them.
+        foreach (var (provider, host) in _hosts)
         {
-            try
-            {
-                host.Dispose();
-            }
-            catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
-            {
-                // A control still initializing can refuse disposal; the process is exiting regardless.
-            }
+            Discard(host, _windows.GetValueOrDefault(provider));
         }
 
-        foreach (var window in _windows.Values)
+        foreach (var (provider, window) in _windows)
         {
-            window.Close();
+            if (!_hosts.ContainsKey(provider))
+            {
+                window.Close();
+            }
         }
 
         _hosts.Clear();
