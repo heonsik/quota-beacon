@@ -69,10 +69,10 @@ public static class QuotaMapper
         ["resets_in_seconds", "reset_after_seconds", "resets_in", "seconds_until_reset"];
 
     private static readonly string[] AmountKeys =
-        ["amount", "total", "spend", "total_spend", "cost", "total_cost", "used", "usage"];
+        ["amount", "total", "spend", "total_spend", "cost", "total_cost", "used_credits", "used_dollars", "used", "usage"];
 
     private static readonly string[] LimitKeys =
-        ["limit", "spend_limit", "cap", "max", "limit_amount", "budget"];
+        ["monthly_limit", "limit_dollars", "limit", "spend_limit", "cap", "max", "limit_amount", "budget"];
 
     private static readonly string[] CurrencyKeys = ["currency", "currency_code", "unit"];
 

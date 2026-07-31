@@ -9,6 +9,7 @@ public partial class App : System.Windows.Application
 {
     private AppCoordinator? _coordinator;
     private Theme? _previewTheme;
+    private SingleInstance? _instance;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -18,17 +19,31 @@ public partial class App : System.Windows.Application
 
         if (options.IsPreview)
         {
+            // Preview windows are for reviewing the interface and never touch a browser profile, so
+            // they are exempt from the single-instance rule.
             StartPreview(options.Scenario);
             return;
         }
 
+        _instance = SingleInstance.Acquire();
+
+        if (!_instance.IsFirstInstance)
+        {
+            // The running copy has been asked to show itself; this one has nothing left to do.
+            Shutdown();
+            return;
+        }
+
         _coordinator = new AppCoordinator(this, AppSettings.Load());
+        _instance.ShowRequested += (_, _) => Dispatcher.BeginInvoke(_coordinator.ShowCard);
+        _instance.Listen();
         _coordinator.Start();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _coordinator?.Dispose();
+        _instance?.Dispose();
         _previewTheme?.Dispose();
         base.OnExit(e);
     }

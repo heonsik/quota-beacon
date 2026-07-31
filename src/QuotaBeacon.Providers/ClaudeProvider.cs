@@ -17,7 +17,10 @@ public sealed class ClaudeProvider(
 {
     public const string SessionMeterId = "claude.session5h";
     public const string WeeklyMeterId = "claude.weekly";
+    public const string WeeklyOpusMeterId = "claude.weekly.opus";
+    public const string WeeklySonnetMeterId = "claude.weekly.sonnet";
     public const string SpendMeterId = "claude.spend.period";
+    public const string ExtraUsageMeterId = "claude.extraUsage";
 
     /// <summary>
     /// Candidate endpoints in preference order: the seat-based usage endpoint first, since it is the
@@ -76,6 +79,11 @@ public sealed class ClaudeProvider(
             WeeklyMeterId,
             "Weekly limit",
             ["seven_day", "weekly", "weekly_limit", "secondary_window", "secondary"]),
+
+        // Per-model weekly caps exist on some plans and are absent on others. An absent container
+        // yields no meter, so listing them costs nothing when they do not apply.
+        new WindowMeterDescriptor(WeeklyOpusMeterId, "Weekly limit (Opus)", ["seven_day_opus"]),
+        new WindowMeterDescriptor(WeeklySonnetMeterId, "Weekly limit (Sonnet)", ["seven_day_sonnet"]),
     ];
 
     private static IReadOnlyList<MeterDescriptor> SpendDescriptors =>
@@ -84,6 +92,8 @@ public sealed class ClaudeProvider(
             SpendMeterId,
             "This billing period",
             ["spend", "usage_cost", "current_period", "billing_period", "cost"]),
+
+        new SpendMeterDescriptor(ExtraUsageMeterId, "Extra usage", ["extra_usage"]),
     ];
 
     public override ProviderId Id => ProviderId.Claude;

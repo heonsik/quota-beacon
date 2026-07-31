@@ -191,6 +191,16 @@ public abstract class HttpQuotaProvider(
 
             var meters = QuotaMapper.Map(document.RootElement, source.Descriptors, now);
 
+            // A partial map means the response carries something the descriptors do not recognise —
+            // a renamed field, or a quota that moved. Worth saying, because the card silently shows
+            // fewer meters and nothing else would reveal why.
+            if (meters.Count > 0 && meters.Count < source.Descriptors.Count)
+            {
+                Log.Debug(
+                    DisplayName,
+                    $"'{source.Name}' mapped {meters.Count} of {source.Descriptors.Count} descriptors; shape={QuotaMapper.DescribeShape(document.RootElement)}");
+            }
+
             if (meters.Count == 0)
             {
                 return new Attempt(

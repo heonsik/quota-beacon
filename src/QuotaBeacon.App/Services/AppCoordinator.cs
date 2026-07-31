@@ -54,6 +54,18 @@ internal sealed class AppCoordinator : IDisposable
         WireEvents();
     }
 
+    /// <summary>Brings the card forward, used when a second launch asks for it.</summary>
+    public void ShowCard()
+    {
+        if (!_popup.IsVisible)
+        {
+            _popup.ToggleNearTray();
+            return;
+        }
+
+        _popup.Activate();
+    }
+
     public void Start()
     {
         // Restored after construction so the window can lay out and report a real size, which the
