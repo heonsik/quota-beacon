@@ -131,9 +131,10 @@ public sealed class RefreshScheduler : IDisposable
 
     public void Dispose()
     {
+        // Cancel, but do not dispose: a refresh may still be unwinding and would observe a disposed
+        // semaphore or token source. Both are collectable once the last reference goes, and the
+        // process is on its way out anyway.
         _shutdown.Cancel();
-        _shutdown.Dispose();
-        _gate.Dispose();
     }
 
     private async Task<QuotaSnapshot> FetchAsync(

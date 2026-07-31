@@ -70,15 +70,15 @@ internal sealed class AppCoordinator : IDisposable
         }
 
         _disposed = true;
+        // Order matters: stop producing work, then tear down what consumes it, then the windows.
         _shutdown.Cancel();
         _credentials.Dispose();
         _scheduler.Dispose();
         _tray.Dispose();
-        _popup.Close();
         _sessions.Dispose();
+        _popup.Close();
         _httpClient.Dispose();
         _theme.Dispose();
-        _shutdown.Dispose();
     }
 
     private void WireEvents()

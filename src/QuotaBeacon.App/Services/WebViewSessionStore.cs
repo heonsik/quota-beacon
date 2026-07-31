@@ -111,12 +111,21 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
     /// <summary>Signs out by deleting the provider's profile.</summary>
     public bool TrySignOut(ProviderId provider)
     {
+        if (_hosts.Remove(provider, out var host))
+        {
+            try
+            {
+                host.Dispose();
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
+            {
+            }
+        }
+
         if (_windows.Remove(provider, out var window))
         {
             window.Close();
         }
-
-        _hosts.Remove(provider);
 
         try
         {
@@ -137,13 +146,27 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
 
     public void Dispose()
     {
+        // Dispose the control before closing its window: the control owns the CoreWebView2 and the
+        // browser processes behind it, and closing the window alone does not release them.
+        foreach (var host in _hosts.Values)
+        {
+            try
+            {
+                host.Dispose();
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
+            {
+                // A control still initializing can refuse disposal; the process is exiting regardless.
+            }
+        }
+
         foreach (var window in _windows.Values)
         {
             window.Close();
         }
 
-        _windows.Clear();
         _hosts.Clear();
+        _windows.Clear();
     }
 
     private static ProviderId? ProviderFor(Uri uri) => uri.Host switch
