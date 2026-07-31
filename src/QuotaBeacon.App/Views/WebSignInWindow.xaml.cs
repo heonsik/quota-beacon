@@ -57,22 +57,48 @@ public partial class WebSignInWindow : Window
     /// <summary>True once the provider's site set cookies, meaning a session now exists.</summary>
     public bool SignedIn { get; private set; }
 
+    /// <summary>
+    /// Starts the embedded browser.
+    /// </summary>
+    /// <remarks>
+    /// An <c>async void</c> handler that throws takes the process down with it, so everything here is
+    /// guarded. The realistic failure is a locked profile: WebView2 user-data folders are
+    /// single-process, so a second copy of QuotaBeacon makes this fail, and the user needs to be told
+    /// that rather than watching a blank window.
+    /// </remarks>
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        var environment = await CoreWebView2Environment.CreateAsync(
-            userDataFolder: WebViewSessionStore.ProfileDirectory(_provider));
+        try
+        {
+            var environment = await CoreWebView2Environment.CreateAsync(
+                userDataFolder: WebViewSessionStore.ProfileDirectory(_provider));
 
-        await Browser.EnsureCoreWebView2Async(environment);
+            await Browser.EnsureCoreWebView2Async(environment);
 
-        Browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
-        Browser.CoreWebView2.Settings.IsStatusBarEnabled = false;
-        Browser.CoreWebView2.NavigationStarting += OnNavigationStarting;
-        // A popped-out window would escape the domain restriction above, so new windows are refused
-        // and reopened in the user's real browser where the address bar is visible.
-        Browser.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
-        Browser.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+            Browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            Browser.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            Browser.CoreWebView2.NavigationStarting += OnNavigationStarting;
+            // A popped-out window would escape the domain restriction above, so new windows are
+            // refused and reopened in the user's real browser where the address bar is visible.
+            Browser.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
+            Browser.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
 
-        Browser.CoreWebView2.Navigate(_signInUri.ToString());
+            Browser.CoreWebView2.Navigate(_signInUri.ToString());
+        }
+        catch (Exception exception)
+        {
+            Explanation.Text = Loc.Current["SignIn.Failed"];
+            CurrentHost.Text = exception.Message;
+        }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+
+        // WPF does not dispose a XAML-declared control when its window closes, so without this the
+        // browser is left to the finalizer — fatal if it never finished initializing.
+        Services.WebViewLifetime.Discard(Browser);
     }
 
     private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
@@ -108,17 +134,25 @@ public partial class WebSignInWindow : Window
             return;
         }
 
-        if (Browser.Source is not { } source || !IsProviderHost(source))
+        try
         {
-            return;
+            if (Browser.Source is not { } source || !IsProviderHost(source))
+            {
+                return;
+            }
+
+            var result = await Browser.CoreWebView2.ExecuteScriptAsync(_validationScript);
+            SignedIn = string.Equals(result, "true", StringComparison.OrdinalIgnoreCase);
+
+            if (SignedIn)
+            {
+                DialogResult = true;
+            }
         }
-
-        var result = await Browser.CoreWebView2.ExecuteScriptAsync(_validationScript);
-        SignedIn = string.Equals(result, "true", StringComparison.OrdinalIgnoreCase);
-
-        if (SignedIn)
+        catch (Exception)
         {
-            DialogResult = true;
+            // Closing or navigating away mid-check tears the browser down underneath us. This is
+            // another async void: it must not throw, and a failed check just means "not yet".
         }
     }
 

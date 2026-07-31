@@ -253,4 +253,7 @@
   <data name="Error.SignInExpired" xml:space="preserve">
     <value>Sign in to {0} from settings. The desktop app keeps its own session; only the terminal CLI refreshes the shared credential file.</value>
   </data>
+  <data name="SignIn.Failed" xml:space="preserve">
+    <value>Could not start the sign-in browser. Another copy of QuotaBeacon may be using it — quit that one and try again.</value>
+  </data>
 </root>

@@ -19,6 +19,13 @@ namespace QuotaBeacon.App.Services;
 /// This deliberately cannot reach an installed browser's cookie store. The user signs in here, in a
 /// window this app owns, and only what they presented to this app is readable.
 /// </para>
+/// <para>
+/// Every method here is called from the refresh loop, which runs on the thread pool. WPF objects
+/// belong to a single STA thread with a dispatcher, so all of it is marshalled to the UI thread
+/// before a control or window is touched. Creating them on the calling thread instead does not merely
+/// fail — it leaves a half-built control whose finalizer throws, and an unhandled exception on the
+/// finalizer thread terminates the process.
+/// </para>
 /// </remarks>
 public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
 {
@@ -30,8 +37,58 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
         "WebView2",
         provider.ToString().ToLowerInvariant());
 
+    public static bool HasProfile(ProviderId provider) => Directory.Exists(ProfileDirectory(provider));
+
+    public async Task<string?> GetCookieHeaderAsync(Uri uri, CancellationToken cancellationToken)
+    {
+        var provider = ProviderFor(uri);
+
+        if (provider is null || !HasProfile(provider.Value))
+        {
+            // No profile means the user never signed in here. That is "unavailable", not an error, and
+            // starting a browser process just to confirm emptiness would be wasteful.
+            return null;
+        }
+
+        if (Application.Current?.Dispatcher is not { } dispatcher)
+        {
+            return null;
+        }
+
+        try
+        {
+            // InvokeAsync returns a task for the delegate; the delegate itself is async, so the outer
+            // task must be unwrapped to await the actual work rather than the scheduling of it.
+            return await dispatcher
+                .InvokeAsync(() => ReadCookieHeaderAsync(provider.Value, uri))
+                .Task
+                .Unwrap()
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A missing WebView2 runtime, a profile held by another instance, or a dispatcher that is
+            // shutting down all land here. The auth chain simply moves on to its remaining sources.
+            return null;
+        }
+    }
+
+    /// <summary>Runs on the UI thread.</summary>
+    private async Task<string?> ReadCookieHeaderAsync(ProviderId provider, Uri uri)
+    {
+        var view = await GetOrCreateHostAsync(provider).ConfigureAwait(true);
+
+        var cookies = await view.CoreWebView2.CookieManager
+            .GetCookiesAsync(uri.GetLeftPart(UriPartial.Authority))
+            .ConfigureAwait(true);
+
+        return cookies.Count == 0
+            ? null
+            : string.Join("; ", cookies.Select(cookie => $"{cookie.Name}={cookie.Value}"));
+    }
+
     /// <summary>
-    /// Creates or returns the hidden WebView2 bound to a provider's profile.
+    /// Creates or returns the hidden WebView2 bound to a provider's profile. Must run on the UI thread.
     /// </summary>
     /// <remarks>
     /// WebView2's managed API needs a hosted control to reach a profile's cookie manager, so a
@@ -45,11 +102,15 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
             return existing;
         }
 
-        var view = new WebView2();
+        WebView2? view = null;
         Window? window = null;
 
         try
         {
+            // Construction is inside the guard: a constructor that throws still leaves an object
+            // registered for finalization, and that is precisely the object whose finalizer is fatal.
+            view = new WebView2();
+
             window = new Window
             {
                 Width = 0,
@@ -73,10 +134,8 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
         catch
         {
             // Initialization commonly fails because another QuotaBeacon instance already holds this
-            // user-data folder — WebView2 profiles are single-process. Whatever the reason, the
-            // half-built control must be destroyed here rather than abandoned to the garbage
-            // collector; see Discard for why that distinction is fatal.
-            Discard(view, window);
+            // user-data folder — WebView2 profiles are single-process.
+            WebViewLifetime.Discard(view, window);
             throw;
         }
 
@@ -86,78 +145,6 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
         return view;
     }
 
-    /// <summary>
-    /// Destroys a host without letting its finalizer run.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="WebView2"/> dereferences state during teardown that only exists once initialization
-    /// has completed. A control that failed to initialize therefore throws
-    /// <see cref="NullReferenceException"/> from its own disposal — and if that disposal happens on the
-    /// finalizer thread, the exception is unhandled and takes the whole process down. Suppressing
-    /// finalization is the only way to guarantee that never happens, so it runs even when the explicit
-    /// disposal below succeeds.
-    /// </remarks>
-    private static void Discard(WebView2 view, Window? window)
-    {
-        try
-        {
-            view.Dispose();
-        }
-        catch (Exception)
-        {
-            // An uninitialized control throws here. There is nothing to recover — the point of this
-            // call is simply to release a control that *was* initialized.
-        }
-        finally
-        {
-            GC.SuppressFinalize(view);
-        }
-
-        if (window is null)
-        {
-            return;
-        }
-
-        // Detach first so closing the window cannot walk back into the dead control.
-        window.Content = null;
-        window.Close();
-    }
-
-    public async Task<string?> GetCookieHeaderAsync(Uri uri, CancellationToken cancellationToken)
-    {
-        var provider = ProviderFor(uri);
-
-        if (provider is null || !HasProfile(provider.Value))
-        {
-            // No profile means the user never signed in here. That is "unavailable", not an error, and
-            // creating a browser process just to confirm emptiness would be wasteful.
-            return null;
-        }
-
-        try
-        {
-            var view = await GetOrCreateHostAsync(provider.Value).ConfigureAwait(true);
-            var cookies = await view.CoreWebView2.CookieManager
-                .GetCookiesAsync(uri.GetLeftPart(UriPartial.Authority))
-                .ConfigureAwait(true);
-
-            if (cookies.Count == 0)
-            {
-                return null;
-            }
-
-            return string.Join("; ", cookies.Select(cookie => $"{cookie.Name}={cookie.Value}"));
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            // A missing WebView2 runtime or a locked profile leaves the chain to fall through to its
-            // remaining sources, which is better than failing the whole refresh.
-            return null;
-        }
-    }
-
-    public static bool HasProfile(ProviderId provider) => Directory.Exists(ProfileDirectory(provider));
-
     /// <summary>Signs out by deleting the provider's profile.</summary>
     public bool TrySignOut(ProviderId provider)
     {
@@ -165,7 +152,7 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
 
         if (_hosts.Remove(provider, out var host))
         {
-            Discard(host, window);
+            WebViewLifetime.Discard(host, window);
         }
         else
         {
@@ -191,11 +178,9 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
 
     public void Dispose()
     {
-        // The control owns the CoreWebView2 and the browser processes behind it, so closing the window
-        // alone does not release them.
         foreach (var (provider, host) in _hosts)
         {
-            Discard(host, _windows.GetValueOrDefault(provider));
+            WebViewLifetime.Discard(host, _windows.GetValueOrDefault(provider));
         }
 
         foreach (var (provider, window) in _windows)

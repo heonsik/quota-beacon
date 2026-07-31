@@ -253,4 +253,7 @@
   <data name="Error.SignInExpired" xml:space="preserve">
     <value>설정에서 {0}에 로그인하세요. 데스크톱 앱은 자체 세션을 쓰므로, 공용 자격증명 파일은 터미널 CLI만 갱신합니다.</value>
   </data>
+  <data name="SignIn.Failed" xml:space="preserve">
+    <value>로그인 브라우저를 시작하지 못했습니다. 다른 QuotaBeacon이 사용 중일 수 있습니다 — 그쪽을 종료한 뒤 다시 시도하세요.</value>
+  </data>
 </root>
