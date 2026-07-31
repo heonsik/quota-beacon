@@ -71,6 +71,21 @@ Output lands in `src/QuotaBeacon.App/bin/Publish/QuotaBeacon.exe`.
 | Self-contained, uncompressed | one `.exe` | 164 MB | No |
 | Framework-dependent | `.exe` **plus** `WebView2Loader.dll` and a `runtimes` folder | 2 MB | Yes, .NET 9 Desktop Runtime |
 
+### Releases
+
+Tagging is what produces a download. Push a version tag and the workflow in
+`.github/workflows/release.yml` runs the tests, publishes the single file on a clean Windows runner,
+and attaches it to a GitHub Release with its SHA-256:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The release page is then the place to point people at, and the executable they get is
+reproducibly the one built from that commit rather than from whoever happened to publish it. The
+workflow can also be run by hand from the Actions tab if a release needs rebuilding.
+
 ### Handing it out
 
 Copy the one `QuotaBeacon.exe` anywhere and run it. Nothing else goes with it.

@@ -1,0 +1,98 @@
+# Builds the distributable and attaches it to a GitHub Release.
+#
+# Publishing from a developer's machine works, but it makes the artifact depend on whose machine it
+# came from. Building it here means the executable people download is reproducibly the one built from
+# a tagged commit, and the tests had to pass first.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, for example v1.0.0'
+        required: true
+
+permissions:
+  # Needed to create the release and upload to it.
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # Tests gate the release: a tag should never produce a download that was never verified.
+      - name: Test
+        run: dotnet test QuotaBeacon.sln --configuration Release
+
+      - name: Publish
+        run: dotnet publish src/QuotaBeacon.App -p:PublishProfile=Portable
+
+      - name: Prepare artifact
+        id: artifact
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            '${{ inputs.version }}'
+          } else {
+            '${{ github.ref_name }}'
+          }
+
+          $published = 'src/QuotaBeacon.App/bin/Publish/QuotaBeacon.exe'
+          if (-not (Test-Path $published)) { throw "Publish produced no executable at $published" }
+
+          # Versioned filename so a downloaded file still says what it is months later.
+          $artifact = "QuotaBeacon-$version.exe"
+          Copy-Item $published $artifact
+
+          $sha = (Get-FileHash $artifact -Algorithm SHA256).Hash
+          $size = [Math]::Round((Get-Item $artifact).Length / 1MB, 1)
+
+          "version=$version"   | Out-File $env:GITHUB_OUTPUT -Append
+          "artifact=$artifact" | Out-File $env:GITHUB_OUTPUT -Append
+          "sha=$sha"           | Out-File $env:GITHUB_OUTPUT -Append
+          "size=$size"         | Out-File $env:GITHUB_OUTPUT -Append
+
+      - name: Write release notes
+        shell: pwsh
+        run: |
+          @"
+          Download **${{ steps.artifact.outputs.artifact }}** and run it. It is a single self-contained
+          executable — nothing to install, no .NET required, no administrator rights.
+
+          | | |
+          | --- | --- |
+          | Size | ${{ steps.artifact.outputs.size }} MB |
+          | SHA-256 | ``${{ steps.artifact.outputs.sha }}`` |
+
+          ### First run
+
+          - Windows shows a SmartScreen warning because the executable is not code-signed. Choose
+            **More info** then **Run anyway**. If your organisation uses application allow-listing, the
+            hash above is what to approve.
+          - Codex usage appears straight away if the Codex CLI is signed in.
+          - For Claude, open **Settings -> Claude -> Sign in** once. The session persists across
+            restarts. If you use the terminal CLI instead, its credentials are picked up automatically.
+
+          Settings and the browser profile live under your own ``%LOCALAPPDATA%\QuotaBeacon``; nothing is
+          written machine-wide.
+          "@ | Out-File release-notes.md -Encoding utf8
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create '${{ steps.artifact.outputs.version }}' `
+            '${{ steps.artifact.outputs.artifact }}' `
+            --title 'QuotaBeacon ${{ steps.artifact.outputs.version }}' `
+            --notes-file release-notes.md
