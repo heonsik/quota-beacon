@@ -122,7 +122,8 @@ public sealed class ClaudeCliAuthSource(ICredentialFileLocator locator) : CliAut
 
         ThrowIfExpired(
             JsonReading.Int64(oauth, "expiresAt"),
-            "Claude sign-in expired. Run any Claude Code command to refresh it, or sign in from settings.");
+            "Claude CLI credentials expired. Only the terminal CLI refreshes this file; "
+            + "the desktop app keeps a separate session. Sign in from settings instead.");
 
         return new AuthCredential(
             AuthSourceKind.Cli,

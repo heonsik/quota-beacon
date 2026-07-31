@@ -251,6 +251,6 @@
     <value>Workspace credits</value>
   </data>
   <data name="Error.SignInExpired" xml:space="preserve">
-    <value>{0} sign-in expired. Run its CLI once to refresh it, or sign in from settings.</value>
+    <value>Sign in to {0} from settings. The desktop app keeps its own session; only the terminal CLI refreshes the shared credential file.</value>
   </data>
 </root>

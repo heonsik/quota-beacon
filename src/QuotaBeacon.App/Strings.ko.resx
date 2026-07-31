@@ -251,6 +251,6 @@
     <value>워크스페이스 크레딧</value>
   </data>
   <data name="Error.SignInExpired" xml:space="preserve">
-    <value>{0} 로그인이 만료되었습니다. CLI를 한 번 실행해 갱신하거나 설정에서 로그인하세요.</value>
+    <value>설정에서 {0}에 로그인하세요. 데스크톱 앱은 자체 세션을 쓰므로, 공용 자격증명 파일은 터미널 CLI만 갱신합니다.</value>
   </data>
 </root>
