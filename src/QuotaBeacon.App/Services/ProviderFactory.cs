@@ -14,13 +14,16 @@ internal static class ProviderFactory
 
         if (settings.ClaudeEnabled)
         {
+            var browser = new BrowserResponseSource(sessions);
+
             providers.Add(new ClaudeProvider(
                 httpClient,
                 new AuthChain(
                 [
                     ClaudeCliAuthSource.Default(),
                     new WebCookieAuthSource(sessions, new Uri("https://claude.ai")),
-                ])));
+                ]),
+                ClaudeProvider.BuildSources(browser)));
         }
 
         if (settings.CodexEnabled)

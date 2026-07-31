@@ -24,7 +24,14 @@ public sealed class ClaudeProvider(
     /// common case and cheap to read, then the organization usage endpoint that consumption accounts
     /// report spend through.
     /// </summary>
-    public static IReadOnlyList<QuotaSource> DefaultSources { get; } =
+    /// <summary>
+    /// Builds the candidate list, given how web requests should be issued.
+    /// </summary>
+    /// <remarks>
+    /// The web endpoint needs a response source because claude.ai refuses non-browser callers, and it
+    /// needs a resolver because usage is scoped to an organization that has to be discovered first.
+    /// </remarks>
+    public static IReadOnlyList<QuotaSource> BuildSources(IResponseSource browser) =>
     [
         new QuotaSource(
             "oauth-usage",
@@ -34,9 +41,28 @@ public sealed class ClaudeProvider(
 
         new QuotaSource(
             "claude-ai-usage",
-            new Uri("https://claude.ai/api/usage"),
+            new Uri("https://claude.ai/api/organizations"),
             [.. SeatDescriptors, .. SpendDescriptors],
-            [AuthSourceKind.Web]),
+            [AuthSourceKind.Web],
+            new ClaudeOrganizationResolver(browser),
+            browser),
+    ];
+
+    /// <summary>
+    /// Candidates available without a browser: the CLI endpoint only.
+    /// </summary>
+    /// <remarks>
+    /// The web endpoint is deliberately absent. It cannot work without a response source that issues
+    /// the request from the signed-in browser, so offering it here would only produce 403s. Callers
+    /// that have a browser use <see cref="BuildSources"/>.
+    /// </remarks>
+    public static IReadOnlyList<QuotaSource> DefaultSources { get; } =
+    [
+        new QuotaSource(
+            "oauth-usage",
+            new Uri("https://api.anthropic.com/api/oauth/usage"),
+            SeatDescriptors,
+            [AuthSourceKind.Cli]),
     ];
 
     private static IReadOnlyList<MeterDescriptor> SeatDescriptors =>

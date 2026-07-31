@@ -16,6 +16,7 @@ internal sealed class AppCoordinator : IDisposable
     private readonly HttpClient _httpClient;
     private readonly WebViewSessionStore _sessions;
     private readonly CredentialWatcher _credentials = new();
+    private readonly FileLogSink _log;
     private readonly PopupWindow _popup;
     private readonly TrayHost _tray;
     private readonly RefreshScheduler _scheduler;
@@ -26,6 +27,10 @@ internal sealed class AppCoordinator : IDisposable
     {
         _application = application;
         _settings = settings;
+
+        _log = new FileLogSink();
+        Log.UseSink(_log);
+        Log.Info("app", $"QuotaBeacon starting; providers: claude={settings.ClaudeEnabled} codex={settings.CodexEnabled}, interval={settings.RefreshMinutes}m");
 
         // Applied before any window is constructed so the first render is already in the right
         // language and nothing has to be rebuilt.
@@ -79,6 +84,8 @@ internal sealed class AppCoordinator : IDisposable
         _popup.Close();
         _httpClient.Dispose();
         _theme.Dispose();
+        Log.Info("app", "shutdown complete");
+        _log.Dispose();
     }
 
     private void WireEvents()

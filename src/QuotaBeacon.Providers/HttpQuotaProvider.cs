@@ -9,7 +9,9 @@ public sealed record QuotaSource(
     string Name,
     Uri Endpoint,
     IReadOnlyList<MeterDescriptor> Descriptors,
-    IReadOnlyList<AuthSourceKind>? AllowedAuthKinds = null)
+    IReadOnlyList<AuthSourceKind>? AllowedAuthKinds = null,
+    IEndpointResolver? Resolver = null,
+    IResponseSource? ResponseSource = null)
 {
     public bool Accepts(AuthSourceKind kind) => AllowedAuthKinds is null || AllowedAuthKinds.Contains(kind);
 }
@@ -52,7 +54,13 @@ public abstract class HttpQuotaProvider(
                 .AcquireAvailableAsync(cancellationToken)
                 .ConfigureAwait(false))
             {
-                foreach (var source in Ordered(sources).Where(source => source.Accepts(credential.Kind)))
+                var candidates = Ordered(sources).Where(source => source.Accepts(credential.Kind)).ToArray();
+
+                Log.Debug(
+                    DisplayName,
+                    $"{credential.Kind} credential accepts {candidates.Length} of {sources.Count} endpoints: {string.Join(", ", candidates.Select(c => c.Name))}");
+
+                foreach (var source in candidates)
                 {
                     var attempt = await AttemptAsync(source, credential, now, cancellationToken)
                         .ConfigureAwait(false);
@@ -60,8 +68,17 @@ public abstract class HttpQuotaProvider(
                     if (attempt.Snapshot is { } success)
                     {
                         _knownGoodSource = source.Name;
+                        Log.Info(
+                            DisplayName,
+                            $"'{source.Name}' returned {success.Meters.Count} meters: {string.Join(", ", success.Meters.Select(m => m.Id))}");
+
                         return success;
                     }
+
+                    Log.Warning(
+                        DisplayName,
+                        $"'{source.Name}' failed: {attempt.Error?.Kind} — {attempt.Error?.Message}"
+                        + (attempt.Error?.ResponseShape is { } shape ? $" shape={shape}" : string.Empty));
 
                     bestError = MoreActionable(bestError, attempt.Error);
 
@@ -76,6 +93,8 @@ public abstract class HttpQuotaProvider(
         }
         catch (AuthUnavailableException unavailable)
         {
+            Log.Warning(DisplayName, $"authentication unavailable: {unavailable.Kind}");
+
             return QuotaSnapshot.Failure(
                 Id,
                 now,
@@ -111,29 +130,64 @@ public abstract class HttpQuotaProvider(
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, source.Endpoint);
+            var endpoint = source.Endpoint;
 
-            foreach (var (name, value) in credential.Headers)
+            if (source.Resolver is { } resolver)
             {
-                request.Headers.TryAddWithoutValidation(name, value);
+                if (await resolver.ResolveAsync(httpClient, credential, cancellationToken)
+                        .ConfigureAwait(false) is not { } resolved)
+                {
+                    return new Attempt(
+                        null,
+                        new ProviderError(
+                            ProviderErrorKind.UnrecognizedResponse,
+                            $"{DisplayName} did not report which account this usage belongs to."));
+                }
+
+                endpoint = resolved;
             }
 
-            using var response = await httpClient
-                .SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken)
-                .ConfigureAwait(false);
+            string body;
 
-            if (!response.IsSuccessStatusCode)
+            if (source.ResponseSource is { } responseSource)
             {
-                return new Attempt(null, TranslateStatus(response));
+                var fetched = await responseSource
+                    .GetAsync(endpoint, credential, cancellationToken)
+                    .ConfigureAwait(false);
+
+                Log.Debug(DisplayName, $"GET {Sanitize(endpoint)} (via browser) -> {fetched.Status}");
+
+                if (fetched.Status is < 200 or > 299)
+                {
+                    return new Attempt(null, TranslateStatus((HttpStatusCode)Math.Max(fetched.Status, 0), null));
+                }
+
+                body = fetched.Body ?? string.Empty;
+            }
+            else
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+
+                foreach (var (name, value) in credential.Headers)
+                {
+                    request.Headers.TryAddWithoutValidation(name, value);
+                }
+
+                using var response = await httpClient
+                    .SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken)
+                    .ConfigureAwait(false);
+
+                Log.Debug(DisplayName, $"GET {Sanitize(endpoint)} -> {(int)response.StatusCode}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new Attempt(null, TranslateStatus(response.StatusCode, response.Headers.RetryAfter?.Delta));
+                }
+
+                body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            await using var stream = await response.Content
-                .ReadAsStreamAsync(cancellationToken)
-                .ConfigureAwait(false);
-
-            using var document = await JsonDocument
-                .ParseAsync(stream, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
+            using var document = JsonDocument.Parse(body);
 
             var meters = QuotaMapper.Map(document.RootElement, source.Descriptors, now);
 
@@ -170,7 +224,7 @@ public abstract class HttpQuotaProvider(
         }
     }
 
-    private ProviderError TranslateStatus(HttpResponseMessage response) => response.StatusCode switch
+    private ProviderError TranslateStatus(HttpStatusCode status, TimeSpan? retryAfter) => status switch
     {
         HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new ProviderError(
             ProviderErrorKind.AuthenticationExpired,
@@ -179,7 +233,7 @@ public abstract class HttpQuotaProvider(
         HttpStatusCode.TooManyRequests => new ProviderError(
             ProviderErrorKind.RateLimited,
             $"{DisplayName} is rate limiting usage checks.",
-            RetryAfter: response.Headers.RetryAfter?.Delta),
+            RetryAfter: retryAfter),
 
         // A 404 means this candidate endpoint does not exist for this account, which is expected
         // while probing and must not be reported as a hard failure.
@@ -189,7 +243,7 @@ public abstract class HttpQuotaProvider(
 
         _ => new ProviderError(
             ProviderErrorKind.Unexpected,
-            $"{DisplayName} returned HTTP {(int)response.StatusCode}."),
+            $"{DisplayName} returned HTTP {(int)status}."),
     };
 
     private string DescribeAuthFailure(AuthUnavailableException unavailable) =>
@@ -213,6 +267,19 @@ public abstract class HttpQuotaProvider(
 
         return current is null || Rank(candidate.Kind) > Rank(current.Kind) ? candidate : current;
     }
+
+    /// <summary>
+    /// Replaces identifiers embedded in a path with a placeholder.
+    /// </summary>
+    /// <remarks>
+    /// Usage endpoints are frequently scoped by an account or organization id. The path is what makes
+    /// a log useful; the id in it is an account identifier, and logs get attached to bug reports.
+    /// </remarks>
+    private static string Sanitize(Uri endpoint) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            endpoint.ToString(),
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            "<id>");
 
     private static int Rank(ProviderErrorKind kind) => kind switch
     {

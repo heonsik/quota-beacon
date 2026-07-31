@@ -45,6 +45,7 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
 
         if (provider is null || !HasProfile(provider.Value))
         {
+            Log.Debug("websession", $"no profile for {uri.Host}; nothing to read");
             // No profile means the user never signed in here. That is "unavailable", not an error, and
             // starting a browser process just to confirm emptiness would be wasteful.
             return null;
@@ -52,6 +53,7 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
 
         if (Application.Current?.Dispatcher is not { } dispatcher)
         {
+            Log.Warning("websession", "no dispatcher available; cannot touch WebView2");
             return null;
         }
 
@@ -67,10 +69,90 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            Log.Error("websession", $"reading cookies for {uri.Host} failed: {exception.GetType().Name}: {exception.Message}");
             // A missing WebView2 runtime, a profile held by another instance, or a dispatcher that is
             // shutting down all land here. The auth chain simply moves on to its remaining sources.
             return null;
         }
+    }
+
+    public async Task<FetchResult> GetFromBrowserAsync(Uri uri, CancellationToken cancellationToken)
+    {
+        var provider = ProviderFor(uri);
+
+        if (provider is null || !HasProfile(provider.Value))
+        {
+            return new FetchResult(-1, null);
+        }
+
+        if (Application.Current?.Dispatcher is not { } dispatcher)
+        {
+            Log.Warning("websession", "no dispatcher available; cannot use the browser");
+            return new FetchResult(-1, null);
+        }
+
+        try
+        {
+            return await dispatcher
+                .InvokeAsync(() => FetchInBrowserAsync(provider.Value, uri, cancellationToken))
+                .Task
+                .Unwrap()
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Log.Error("websession", $"browser fetch of {uri} failed: {exception.GetType().Name}: {exception.Message}");
+            return new FetchResult(-1, null);
+        }
+    }
+
+    /// <summary>Runs on the UI thread.</summary>
+    private async Task<FetchResult> FetchInBrowserAsync(
+        ProviderId provider,
+        Uri uri,
+        CancellationToken cancellationToken)
+    {
+        var view = await GetOrCreateHostAsync(provider).ConfigureAwait(true);
+        var origin = uri.GetLeftPart(UriPartial.Authority);
+
+        // fetch is only first-party if the document itself is on that origin, and a blank host is on
+        // about:blank until told otherwise.
+        if (view.Source is null || !string.Equals(
+                view.Source.GetLeftPart(UriPartial.Authority),
+                origin,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var navigated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void OnCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args) =>
+                navigated.TrySetResult();
+
+            view.CoreWebView2.NavigationCompleted += OnCompleted;
+
+            try
+            {
+                view.CoreWebView2.Navigate(origin + "/");
+
+                using var timer = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await using (timer.Token.Register(() => navigated.TrySetCanceled()))
+                {
+                    await navigated.Task.ConfigureAwait(true);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Warning("websession", $"navigating the hidden host to {origin} timed out");
+                return new FetchResult(-1, null);
+            }
+            finally
+            {
+                view.CoreWebView2.NavigationCompleted -= OnCompleted;
+            }
+        }
+
+        return await BrowserFetch
+            .GetAsync(view, uri, TimeSpan.FromSeconds(30), cancellationToken)
+            .ConfigureAwait(true);
     }
 
     /// <summary>Runs on the UI thread.</summary>
@@ -81,6 +163,10 @@ public sealed class WebViewSessionStore : IWebSessionStore, IDisposable
         var cookies = await view.CoreWebView2.CookieManager
             .GetCookiesAsync(uri.GetLeftPart(UriPartial.Authority))
             .ConfigureAwait(true);
+
+        Log.Info(
+            "websession",
+            $"{uri.Host}: {cookies.Count} cookies in profile ({string.Join(", ", cookies.Select(c => c.Name))})");
 
         return cookies.Count == 0
             ? null

@@ -92,12 +92,21 @@ public sealed class AuthChain(IReadOnlyList<IAuthSource> sources)
             if (credential is not null)
             {
                 yielded = true;
+                Log.Info("auth", $"{source.Kind} source supplied a credential ({credential.Headers.Count} headers: {string.Join(", ", credential.Headers.Keys)})");
                 yield return credential;
+            }
+            else
+            {
+                Log.Debug("auth", $"{source.Kind} source has nothing available");
             }
         }
 
         if (!yielded)
         {
+            Log.Warning("auth", expiredMessage is null
+                ? "no source could authenticate"
+                : "no source could authenticate; an earlier one reported an expired credential");
+
             throw expiredMessage is null
                 ? new AuthUnavailableException(ProviderErrorKind.AuthenticationMissing)
                 : new AuthUnavailableException(ProviderErrorKind.AuthenticationExpired, expiredMessage);

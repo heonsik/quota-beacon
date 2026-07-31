@@ -18,6 +18,15 @@ public interface IWebSessionStore
     /// not signed in to that site inside QuotaBeacon.
     /// </summary>
     Task<string?> GetCookieHeaderAsync(Uri uri, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Issues a GET from inside the signed-in browser and returns the status and body.
+    /// </summary>
+    /// <remarks>
+    /// Needed because some sites answer 403 to anything that is not a browser. Running the request in
+    /// the browser satisfies that honestly, rather than by pretending to be one.
+    /// </remarks>
+    Task<FetchResult> GetFromBrowserAsync(Uri uri, CancellationToken cancellationToken);
 }
 
 /// <summary>

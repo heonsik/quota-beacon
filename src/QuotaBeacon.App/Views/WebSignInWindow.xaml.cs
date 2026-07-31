@@ -27,7 +27,7 @@ public partial class WebSignInWindow : Window
     private readonly ProviderId _provider;
     private readonly Uri _signInUri;
     private readonly string[] _providerHostSuffixes;
-    private readonly string _validationScript;
+    private readonly Uri _validationEndpoint;
 
     public WebSignInWindow(ProviderId provider, string displayName)
     {
@@ -35,16 +35,16 @@ public partial class WebSignInWindow : Window
 
         InitializeComponent();
 
-        (_signInUri, _providerHostSuffixes, _validationScript) = provider switch
+        (_signInUri, _providerHostSuffixes, _validationEndpoint) = provider switch
         {
             ProviderId.Claude => (
                 new Uri("https://claude.ai/login"),
                 new[] { "claude.ai", "anthropic.com" },
-                "fetch('/api/usage',{credentials:'include'}).then(r=>r.ok).catch(()=>false)"),
+                new Uri("https://claude.ai/api/organizations")),
             _ => (
                 new Uri("https://chatgpt.com/auth/login"),
                 new[] { "chatgpt.com", "openai.com" },
-                "fetch('/api/auth/session',{credentials:'include'}).then(async r=>r.ok&&Boolean((await r.json()).accessToken)).catch(()=>false)"),
+                new Uri("https://chatgpt.com/api/auth/session")),
         };
 
         Title = Loc.Current.Format("SignIn.Title", displayName);
@@ -178,8 +178,15 @@ public partial class WebSignInWindow : Window
                 return;
             }
 
-            var result = await Browser.CoreWebView2.ExecuteScriptAsync(_validationScript);
-            SignedIn = string.Equals(result, "true", StringComparison.OrdinalIgnoreCase);
+            // Asking the API directly is the only reliable signal: the page a successful sign-in
+            // lands on differs by plan, tenant, and identity provider.
+            var probe = await Services.BrowserFetch.GetAsync(
+                Browser,
+                _validationEndpoint,
+                TimeSpan.FromSeconds(15),
+                CancellationToken.None);
+
+            SignedIn = probe.Status is >= 200 and <= 299;
 
             if (SignedIn)
             {
