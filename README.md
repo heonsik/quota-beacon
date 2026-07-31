@@ -53,19 +53,39 @@ DPAPI-protected store, which is the technique credential-stealing malware uses.
 `dotnet publish` produces **a single `QuotaBeacon.exe`**. Copy that one file anywhere and run it —
 there is nothing else to place beside it and nothing to install.
 
-Recommended, and what the numbers below were measured at:
+A publish profile carries the right settings, so either of these produces it:
 
-```bash
-dotnet publish src/QuotaBeacon.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none
-```
+- **Visual Studio** — right-click `QuotaBeacon.App` → **Publish** → the `Portable` profile → **Publish**.
+  Note this is *Publish*, not Build. Build leaves a folder of DLLs that needs .NET installed.
+- **Command line**
 
-Output lands in `src/QuotaBeacon.App/bin/Release/net9.0-windows/win-x64/publish/`.
+  ```bash
+  dotnet publish src/QuotaBeacon.App -p:PublishProfile=Portable
+  ```
+
+Output lands in `src/QuotaBeacon.App/bin/Publish/QuotaBeacon.exe`.
 
 | Variant | Result | Size | Needs .NET installed? |
 | --- | --- | --- | --- |
 | Self-contained, compressed | one `.exe` | **72 MB** | No |
 | Self-contained, uncompressed | one `.exe` | 164 MB | No |
 | Framework-dependent | `.exe` **plus** `WebView2Loader.dll` and a `runtimes` folder | 2 MB | Yes, .NET 9 Desktop Runtime |
+
+### Handing it out
+
+Copy the one `QuotaBeacon.exe` anywhere and run it. Nothing else goes with it.
+
+Two things to expect the first time, neither of which is a fault:
+
+- **SmartScreen.** The executable is unsigned, so Windows shows "Windows에서 PC를 보호했습니다" on first
+  run and needs 추가 정보 → 실행. For wider internal distribution, sign it with a code-signing
+  certificate; that is the only thing that removes the prompt.
+- **Endpoint protection.** A compressed single-file executable unpacks itself on launch, which some
+  scanners look at twice. If your estate uses application allow-listing, get the hash approved before
+  handing it round.
+
+Settings and the browser profile live under the running user's `%LOCALAPPDATA%`, so nothing is left
+behind machine-wide and no elevation is ever required.
 
 The compressed self-contained build is the one to hand out: a single file, no runtime prerequisite,
 no administrator rights. It costs a little startup time to decompress, which is invisible for an app
