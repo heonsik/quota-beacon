@@ -256,4 +256,13 @@
   <data name="SignIn.Failed" xml:space="preserve">
     <value>Could not start the sign-in browser. Another copy of QuotaBeacon may be using it — quit that one and try again.</value>
   </data>
+  <data name="SignIn.Blocked" xml:space="preserve">
+    <value>Blocked a navigation that is not a web page: {0}</value>
+  </data>
+  <data name="SignIn.NavigationFailed" xml:space="preserve">
+    <value>The page could not load ({0}). If your account uses Google sign-in, see the README.</value>
+  </data>
+  <data name="SignIn.GoogleBlocked" xml:space="preserve">
+    <value>Google does not allow sign-in inside an embedded browser, so this cannot finish here. Run "claude" in a terminal instead: it signs in through your real browser, and QuotaBeacon picks that up within seconds.</value>
+  </data>
 </root>

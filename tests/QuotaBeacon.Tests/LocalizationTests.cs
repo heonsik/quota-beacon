@@ -29,7 +29,7 @@ public class LocalizationTests : IDisposable
         "Settings.RefreshInterval", "Settings.WarningAt", "Settings.CriticalAt", "Settings.RunAtStartup",
         "Settings.Language", "Settings.LanguageSystem", "Settings.AlwaysOnTop", "Settings.Author",
         "Validation.Numeric", "Validation.Range", "Validation.OneProvider", "Validation.SessionBusy",
-        "SignIn.Title", "SignIn.Explanation", "SignIn.Failed",
+        "SignIn.Title", "SignIn.Explanation", "SignIn.Failed", "SignIn.Blocked", "SignIn.GoogleBlocked", "SignIn.NavigationFailed",
         "Dialog.RestartPrompt", "Dialog.StartupFailed", "Dialog.MonitoringStopped",
     ];
 

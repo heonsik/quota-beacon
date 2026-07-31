@@ -101,27 +101,62 @@ public partial class WebSignInWindow : Window
         Services.WebViewLifetime.Discard(Browser);
     }
 
+    /// <summary>
+    /// Allows the sign-in flow to navigate, while refusing anything that is not a web page.
+    /// </summary>
+    /// <remarks>
+    /// Single sign-on legitimately crosses hosts — a Claude account backed by Google ends up on
+    /// accounts.google.com — so the host is displayed rather than restricted. What is refused is a
+    /// non-web scheme, which is how an embedded browser gets talked into launching an external
+    /// handler.
+    ///
+    /// <c>about:</c> is allowed: OAuth flows routinely pass through <c>about:blank</c> as an
+    /// intermediate document. Cancelling those silently leaves the user staring at a blank window
+    /// with the flow dead, which is exactly what happened before.
+    /// </remarks>
     private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
         if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri))
         {
             e.Cancel = true;
+            Explanation.Text = Loc.Current.Format("SignIn.Blocked", e.Uri);
             return;
         }
 
-        e.Cancel = uri.Scheme != Uri.UriSchemeHttps;
-
-        if (!e.Cancel)
+        if (uri.Scheme is "about" or "data")
         {
-            CurrentHost.Text = uri.Host;
+            return;
+        }
+
+        if (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+        {
+            e.Cancel = true;
+            Explanation.Text = Loc.Current.Format("SignIn.Blocked", uri.Scheme);
+            return;
+        }
+
+        CurrentHost.Text = uri.Host;
+
+        // Google refuses OAuth inside embedded browsers (disallowed_useragent) to prevent this exact
+        // shape of window from intercepting credentials. That is a deliberate protection, not an
+        // obstacle to route around, so the flow is explained rather than defeated.
+        if (IsGoogleSignIn(uri))
+        {
+            Explanation.Text = Loc.Current["SignIn.GoogleBlocked"];
         }
     }
+
+    private static bool IsGoogleSignIn(Uri uri) =>
+        uri.Host.Equals("accounts.google.com", StringComparison.OrdinalIgnoreCase)
+        || uri.Host.EndsWith(".accounts.google.com", StringComparison.OrdinalIgnoreCase);
 
     private void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
     {
         if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri)
-            && uri.Scheme == Uri.UriSchemeHttps)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
         {
+            // Keeping the popup in this window is what preserves the domain display above; a real
+            // popup would carry no address bar the user can check.
             e.Handled = true;
             Browser.CoreWebView2.Navigate(uri.ToString());
         }
@@ -131,6 +166,8 @@ public partial class WebSignInWindow : Window
     {
         if (!e.IsSuccess)
         {
+            // A silent failure here is indistinguishable from a blank page, so say what went wrong.
+            Explanation.Text = Loc.Current.Format("SignIn.NavigationFailed", e.WebErrorStatus);
             return;
         }
 

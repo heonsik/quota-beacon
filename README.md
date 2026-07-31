@@ -24,6 +24,12 @@ ordered authentication chain and uses the first source that works:
    You sign in through a browser window QuotaBeacon owns, and the session stays in its own WebView2
    profile — it survives restarts and reboots, so this is a one-time step.
 
+   **This does not work for accounts that sign in with Google.** Google refuses OAuth inside
+   embedded browsers, by policy, to stop a window like this one from intercepting credentials.
+   QuotaBeacon does not attempt to disguise itself to get around that. If your Claude account uses
+   Google sign-in, run `claude` in a terminal instead: it authenticates through your real browser,
+   writes the credential file, and QuotaBeacon notices within seconds.
+
 QuotaBeacon **never refreshes** a CLI token. That refresh token is shared with the vendor's CLI, and
 refreshing it from a second process can invalidate your session. On expiry it says so and points you
 at the two ways to fix it.
