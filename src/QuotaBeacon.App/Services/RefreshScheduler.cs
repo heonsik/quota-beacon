@@ -115,6 +115,20 @@ public sealed class RefreshScheduler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Drops a provider's backoff so the next refresh attempts it again.
+    /// </summary>
+    /// <remarks>
+    /// Called when the thing the provider was waiting on has changed — a rewritten credential file,
+    /// or a fresh sign-in. Without this an expired token would hold the provider off for the full
+    /// hour even after the user had already fixed it.
+    /// </remarks>
+    public void ClearBackoff(ProviderId provider)
+    {
+        _nextAttempt.Remove(provider);
+        _consecutiveFailures.Remove(provider);
+    }
+
     public void Dispose()
     {
         _shutdown.Cancel();

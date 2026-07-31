@@ -15,6 +15,7 @@ internal sealed class AppCoordinator : IDisposable
     private readonly Theme _theme;
     private readonly HttpClient _httpClient;
     private readonly WebViewSessionStore _sessions;
+    private readonly CredentialWatcher _credentials = new();
     private readonly PopupWindow _popup;
     private readonly TrayHost _tray;
     private readonly RefreshScheduler _scheduler;
@@ -70,6 +71,7 @@ internal sealed class AppCoordinator : IDisposable
 
         _disposed = true;
         _shutdown.Cancel();
+        _credentials.Dispose();
         _scheduler.Dispose();
         _tray.Dispose();
         _popup.Close();
@@ -90,6 +92,14 @@ internal sealed class AppCoordinator : IDisposable
         _popup.SettingsRequested += (_, _) => OpenSettings();
         _popup.SignInRequested += (_, provider) => SignIn(provider);
         _popup.PlacementChanged += (_, placement) => PersistPlacement(placement);
+
+        // Running the vendor CLI once is the user's own fix for an expired token. Picking the new
+        // file up immediately is what makes that fix feel like it worked.
+        _credentials.CredentialChanged += (_, provider) =>
+        {
+            _scheduler.ClearBackoff(provider);
+            _ = RefreshNowAsync();
+        };
     }
 
     private async Task RunSchedulerAsync()
@@ -162,6 +172,7 @@ internal sealed class AppCoordinator : IDisposable
 
         if (window.SignedIn)
         {
+            _scheduler.ClearBackoff(provider);
             _ = RefreshNowAsync();
         }
     }

@@ -41,11 +41,18 @@ public sealed class ProviderViewModel
         // Provider messages stay in English by design: they are diagnostics. "Not signed in" is the
         // exception, because it is the error users hit most and it reads as guidance rather than as a
         // diagnostic, so the UI phrases that one itself from the error kind.
-        ErrorText = state.Error is null
-            ? string.Empty
-            : state.Error.Kind == ProviderErrorKind.AuthenticationMissing
-                ? Localization.Current.Format("Error.NotSignedIn", displayName)
-                : state.Error.Message;
+        // Both authentication states are guidance rather than diagnostics, and they are what users
+        // hit most, so the UI phrases them from the error kind. Everything else keeps the provider's
+        // English message.
+        ErrorText = state.Error?.Kind switch
+        {
+            null => string.Empty,
+            ProviderErrorKind.AuthenticationMissing =>
+                Localization.Current.Format("Error.NotSignedIn", displayName),
+            ProviderErrorKind.AuthenticationExpired =>
+                Localization.Current.Format("Error.SignInExpired", displayName),
+            _ => state.Error.Message,
+        };
 
         LastSuccessText = state.LastSuccessAt is { } at
             ? DescribeAge(now - at)

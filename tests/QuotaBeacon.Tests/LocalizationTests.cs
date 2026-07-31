@@ -24,7 +24,7 @@ public class LocalizationTests : IDisposable
         "Meter.ResetsInHours", "Meter.ResetsInMinutes", "Meter.ResetsUnderMinute", "Meter.Through",
         "Status.UpdatedJustNow", "Status.UpdatedMinutes", "Status.UpdatedHours", "Status.UpdatedDays",
         "Status.NoProviders", "Status.WaitingFirst", "Status.StaleAll", "Status.StaleSome",
-        "Error.NotSignedIn",
+        "Error.NotSignedIn", "Error.SignInExpired",
         "Settings.Title", "Settings.Providers", "Settings.WebSessionAvailable", "Settings.NoWebSession",
         "Settings.RefreshInterval", "Settings.WarningAt", "Settings.CriticalAt", "Settings.RunAtStartup",
         "Settings.Language", "Settings.LanguageSystem", "Settings.AlwaysOnTop", "Settings.Author",

@@ -250,4 +250,7 @@
   <data name="Meter.Credits" xml:space="preserve">
     <value>워크스페이스 크레딧</value>
   </data>
+  <data name="Error.SignInExpired" xml:space="preserve">
+    <value>{0} 로그인이 만료되었습니다. CLI를 한 번 실행해 갱신하거나 설정에서 로그인하세요.</value>
+  </data>
 </root>
