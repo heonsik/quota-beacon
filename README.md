@@ -121,11 +121,25 @@ nothing else.
 
 ## Building and running from source
 
-Requires the .NET 9 SDK.
+The repository is self-contained: clone it, and building, testing, and publishing all work with no
+files to copy in and nothing to configure. Verified by cloning fresh and running the whole path.
+
+You need:
+
+- **Windows**, since the app targets WPF and `net9.0-windows`
+- **.NET 9 SDK** — that alone is enough for the command line
+- **Internet access on first build**, to restore the one package (`Microsoft.Web.WebView2`)
+- Visual Studio 2022 17.12 or later is optional; it only adds the debugger and the Publish dialog
 
 ```bash
+git clone https://github.com/heonsik/quota-beacon.git
+cd quota-beacon
 dotnet test QuotaBeacon.sln
+dotnet publish src/QuotaBeacon.App -p:PublishProfile=Portable
 ```
+
+Nothing in the build depends on the machine it runs on, which is also why the release workflow can
+produce the same executable on a GitHub runner.
 
 Run profiles are defined in `src/QuotaBeacon.App/Properties/launchSettings.json`:
 
