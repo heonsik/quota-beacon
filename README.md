@@ -14,9 +14,15 @@ QuotaBeacon does not ask you for a password or store a credential of its own. Ea
 ordered authentication chain and uses the first source that works:
 
 1. **CLI credentials.** `%USERPROFILE%\.claude\.credentials.json` and `%USERPROFILE%\.codex\auth.json`,
-   opened read-only. These are the tokens Claude Code and the Codex CLI already obtained.
-2. **Embedded web sign-in.** For people who never installed either CLI. You sign in through a browser
-   window QuotaBeacon owns, and the session stays in its own WebView2 profile.
+   opened read-only. These are the tokens the terminal CLIs already obtained.
+
+   **The Claude desktop app does not write this file.** It keeps its own session under
+   `%APPDATA%\Claude`, so having the desktop app open never refreshes the CLI credential — and a
+   Claude access token lasts only about eight hours. If you work through the desktop app rather
+   than a terminal, use the web sign-in below. It is the path built for exactly this case.
+2. **Embedded web sign-in.** For people who never installed either CLI, or who use the desktop app.
+   You sign in through a browser window QuotaBeacon owns, and the session stays in its own WebView2
+   profile — it survives restarts and reboots, so this is a one-time step.
 
 QuotaBeacon **never refreshes** a CLI token. That refresh token is shared with the vendor's CLI, and
 refreshing it from a second process can invalidate your session. On expiry it says so and points you
