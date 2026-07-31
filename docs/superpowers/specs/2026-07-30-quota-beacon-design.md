@@ -104,12 +104,19 @@ QuotaBeacon.App           WPF popup + WinForms NotifyIcon for the tray
   RefreshScheduler        refresh loop, backoff
   AppSettings             JSON under %LOCALAPPDATA%
 
-QuotaBeacon.Tests         xUnit; covers Core and Providers mapping via fixtures
+QuotaBeacon.Tests         xUnit on net9.0; covers Core and Providers. Platform neutral.
   Fixtures/               hand-authored JSON response samples
+
+QuotaBeacon.App.Tests     xUnit on net9.0-windows; covers the app layer
 ```
 
-`Core` depends on nothing. `Providers` depends on `Core`. `App` depends on both. Tests
-depend on `Core` and `Providers` and never touch the network.
+`Core` depends on nothing. `Providers` depends on `Core`. `App` depends on both. No test touches
+the network.
+
+Tests are split to follow that layering rather than to organise files. `QuotaBeacon.Tests` targets
+plain `net9.0` and covers the model, alerts, auth chain, and mapping — where the reasoning lives — so
+it builds and runs anywhere, including WSL. Only `QuotaBeacon.App.Tests` needs the desktop
+framework. Folding both into one project would have quietly made every test Windows-only.
 
 WPF carries the visual work because the popup needs gradients, shadows, eased animation,
 and system theme following, none of which WinForms does well. `NotifyIcon` comes from

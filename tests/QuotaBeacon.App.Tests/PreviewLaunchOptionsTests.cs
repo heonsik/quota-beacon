@@ -1,6 +1,6 @@
 using QuotaBeacon.App;
 
-namespace QuotaBeacon.Tests;
+namespace QuotaBeacon.App.Tests;
 
 public class PreviewLaunchOptionsTests
 {

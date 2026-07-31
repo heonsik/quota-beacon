@@ -1,6 +1,6 @@
 using QuotaBeacon.App.Theming;
 
-namespace QuotaBeacon.Tests;
+namespace QuotaBeacon.App.Tests;
 
 /// <summary>
 /// Guards the translation set itself.

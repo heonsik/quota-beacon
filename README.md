@@ -141,6 +141,28 @@ dotnet publish src/QuotaBeacon.App -p:PublishProfile=Portable
 Nothing in the build depends on the machine it runs on, which is also why the release workflow can
 produce the same executable on a GitHub runner.
 
+### Working from WSL or Linux
+
+Editing, committing, and pushing work anywhere — it is an ordinary Git repository.
+
+Building splits along the layering, because WPF is Windows-only:
+
+| | Linux / WSL | Windows |
+| --- | --- | --- |
+| `QuotaBeacon.Core`, `QuotaBeacon.Providers` | yes | yes |
+| `QuotaBeacon.Tests` — the quota model, alerts, auth chain, response mapping | yes | yes |
+| `QuotaBeacon.App` and `QuotaBeacon.App.Tests` | no | yes |
+| Publishing the executable | no | yes |
+
+```bash
+# Everything a Linux contributor can run, and most of the logic lives here
+dotnet test tests/QuotaBeacon.Tests
+```
+
+So someone on WSL can change and test the quota model, the alert rules, the authentication chain,
+and the response mapping — then push, and let the release workflow build the Windows executable.
+Only work that touches the interface itself needs a Windows machine.
+
 Run profiles are defined in `src/QuotaBeacon.App/Properties/launchSettings.json`:
 
 - **QuotaBeacon (tray)** — the real thing. Lives in the notification area; click the icon to open it.

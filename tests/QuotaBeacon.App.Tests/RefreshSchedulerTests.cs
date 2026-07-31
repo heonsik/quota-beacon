@@ -1,7 +1,7 @@
 using QuotaBeacon.App.Services;
 using QuotaBeacon.Core;
 
-namespace QuotaBeacon.Tests;
+namespace QuotaBeacon.App.Tests;
 
 public class RefreshSchedulerTests
 {
